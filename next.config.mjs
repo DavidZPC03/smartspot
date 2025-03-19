@@ -1,6 +1,6 @@
-let userConfig = undefined;
+let userConfig = undefined
 try {
-  userConfig = await import('./v0-user-next.config');
+  userConfig = await import('./v0-user-next.config')
 } catch (e) {
   // ignore error
 }
@@ -21,42 +21,28 @@ const nextConfig = {
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
-  webpack: (config) => {
-    config.infrastructureLogging = { level: 'error' };
-    return config;
-  },
-};
+}
 
-mergeConfig(nextConfig, userConfig);
+mergeConfig(nextConfig, userConfig)
 
 function mergeConfig(nextConfig, userConfig) {
   if (!userConfig) {
-    return;
+    return
   }
 
   for (const key in userConfig) {
-    if (key === 'webpack' && typeof userConfig[key] === 'function') {
-      // Si la clave es 'webpack' y es una función, combinamos las funciones
-      const userWebpack = userConfig[key];
-      const baseWebpack = nextConfig[key] || ((config) => config);
-      nextConfig[key] = (config) => {
-        const modifiedConfig = baseWebpack(config);
-        return userWebpack(modifiedConfig);
-      };
-    } else if (
+    if (
       typeof nextConfig[key] === 'object' &&
       !Array.isArray(nextConfig[key])
     ) {
-      // Si es un objeto, lo fusionamos
       nextConfig[key] = {
         ...nextConfig[key],
         ...userConfig[key],
-      };
+      }
     } else {
-      // En otros casos, simplemente reemplazamos
-      nextConfig[key] = userConfig[key];
+      nextConfig[key] = userConfig[key]
     }
   }
 }
 
-export default nextConfig;
+export default nextConfig
