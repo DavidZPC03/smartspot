@@ -1,0 +1,61 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  name         String?
+  password     String?
+  phone        String?  @unique
+  licensePlate String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Location {
+  id           String        @id @default(cuid())
+  name         String
+  address      String
+  latitude     Float?
+  longitude    Float?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  parkingSpots ParkingSpot[]
+}
+
+model ParkingSpot {
+  id           String        @id @default(cuid())
+  spotNumber   Int
+  isAvailable  Boolean       @default(true)
+  price        Float         @default(0)
+  locationId   String
+  location     Location      @relation(fields: [locationId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reservations Reservation[]
+}
+
+model Reservation {
+  id            String      @id @default(cuid())
+  parkingSpotId String
+  parkingSpot   ParkingSpot @relation(fields: [parkingSpotId], references: [id])
+  startTime     DateTime
+  endTime       DateTime
+  price         Float       @default(0)
+  paymentMethod String?
+  paymentId     String?
+  qrCode        String      @unique
+  status        String      @default("pending") // pending, confirmed, cancelled
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
