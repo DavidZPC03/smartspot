@@ -1,13 +1,25 @@
 import { type NextRequest, NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
-import { getCurrentUser } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { verify } from "jsonwebtoken"
+
+// Asegúrate de que AUTH_SECRET esté definido
+const AUTH_SECRET = process.env.AUTH_SECRET || "your-fallback-secret-key-for-development"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    // In a real app, check if user is admin
-    const user = await getCurrentUser()
-    if (!user) {
+    // Verificar el token de administrador
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    const token = authHeader.split(" ")[1]
+
+    try {
+      // Verificar el token
+      verify(token, AUTH_SECRET)
+    } catch (err) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 })
     }
 
     const locationId = params.id
@@ -37,10 +49,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    // In a real app, check if user is admin
-    const user = await getCurrentUser()
-    if (!user) {
+    // Verificar el token de administrador
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    const token = authHeader.split(" ")[1]
+
+    try {
+      // Verificar el token
+      verify(token, AUTH_SECRET)
+    } catch (err) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 })
     }
 
     const locationId = params.id
@@ -113,7 +134,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
             // If spot has reservations, just mark it as inactive
             await prisma.parkingSpot.update({
               where: { id: spot.id },
-              data: { isActive: false },
+              data: { isAvailable: false },
             })
           } else {
             // If no reservations, delete the spot
@@ -137,10 +158,19 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    // In a real app, check if user is admin
-    const user = await getCurrentUser()
-    if (!user) {
+    // Verificar el token de administrador
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    const token = authHeader.split(" ")[1]
+
+    try {
+      // Verificar el token
+      verify(token, AUTH_SECRET)
+    } catch (err) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 })
     }
 
     const locationId = params.id

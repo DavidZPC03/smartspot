@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma" // Cambiado de import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 import { sign } from "jsonwebtoken"
 
 // Asegúrate de que AUTH_SECRET esté definido
@@ -11,17 +11,30 @@ export async function POST(request: NextRequest) {
     const { name, email, phone, licensePlate } = body
 
     // Validate required fields
-    if (!phone || !licensePlate) {
-      return NextResponse.json({ error: "Teléfono y placa son requeridos" }, { status: 400 })
+    if (!name || !phone || !licensePlate) {
+      return NextResponse.json({ error: "Nombre, teléfono y placa son requeridos" }, { status: 400 })
+    }
+
+    // Validate email format if provided
+    if (email && !/\S+@\S+\.\S+/.test(email)) {
+      return NextResponse.json({ error: "Formato de correo electrónico inválido" }, { status: 400 })
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { phone },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ phone }, { licensePlate }],
+      },
     })
 
     if (existingUser) {
-      return NextResponse.json({ error: "Usuario ya registrado con este número de teléfono" }, { status: 400 })
+      if (existingUser.phone === phone) {
+        return NextResponse.json({ error: "Ya existe un usuario con este número de teléfono" }, { status: 400 })
+      }
+      if (existingUser.licensePlate === licensePlate) {
+        return NextResponse.json({ error: "Ya existe un usuario con esta placa" }, { status: 400 })
+      }
+      return NextResponse.json({ error: "Usuario ya registrado" }, { status: 400 })
     }
 
     // Create new user
@@ -53,6 +66,7 @@ export async function POST(request: NextRequest) {
         name: user.name,
         phone: user.phone,
         licensePlate: user.licensePlate,
+        email: user.email,
       },
       token,
     })

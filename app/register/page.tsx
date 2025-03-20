@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -26,6 +26,20 @@ export default function RegisterPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+
+    // Validar que todos los campos requeridos estén completos
+    if (!name || !phone || !plate) {
+      setError("Por favor complete todos los campos requeridos")
+      setLoading(false)
+      return
+    }
+
+    // Validar formato de email si se proporciona
+    if (email && !/\S+@\S+\.\S+/.test(email)) {
+      setError("Por favor ingrese un correo electrónico válido")
+      setLoading(false)
+      return
+    }
 
     try {
       const response = await fetch("/api/auth/register", {
@@ -76,6 +90,7 @@ export default function RegisterPage() {
             <span className="text-blue-600">SMART</span>
             <span className="text-gray-800">SPOT</span>
           </CardTitle>
+          <p className="text-sm text-muted-foreground">Registro de nuevo usuario</p>
         </CardHeader>
         <CardContent>
           {error && (
@@ -87,7 +102,9 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre Completo</Label>
+              <Label htmlFor="name">
+                Nombre Completo <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="name"
                 placeholder="Ingresa tu nombre"
@@ -97,7 +114,9 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Correo Electrónico</Label>
+              <Label htmlFor="email">
+                Correo Electrónico <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -106,9 +125,12 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">Necesario para recibir confirmaciones de reserva</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Teléfono</Label>
+              <Label htmlFor="phone">
+                Teléfono <span className="text-red-500">*</span>
+              </Label>
               <div className="flex">
                 <Select value={countryCode} onValueChange={setCountryCode}>
                   <SelectTrigger className="w-24">
@@ -132,7 +154,9 @@ export default function RegisterPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="plate">No. de Placa</Label>
+              <Label htmlFor="plate">
+                No. de Placa <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="plate"
                 placeholder="Ingresa tu placa"
@@ -144,16 +168,16 @@ export default function RegisterPage() {
             <Button type="submit" className="w-full py-6" size="lg" disabled={loading}>
               {loading ? "Procesando..." : "Continuar"}
             </Button>
-            <div className="text-center mt-4">
-              <p className="text-sm text-muted-foreground">
-                ¿Ya tienes una cuenta?{" "}
-                <Link href="/user-login" className="text-blue-600 hover:underline">
-                  Iniciar sesión
-                </Link>
-              </p>
-            </div>
           </form>
         </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            ¿Ya tienes una cuenta?{" "}
+            <Link href="/user-login" className="text-blue-600 hover:underline">
+              Iniciar sesión
+            </Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   )

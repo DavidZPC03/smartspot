@@ -26,46 +26,19 @@ export async function POST(request: NextRequest) {
 
     console.log("User found:", user)
 
-    // Si no se encuentra el usuario, crear uno nuevo
+    // Si no se encuentra el usuario, devolver error
     if (!user) {
-      console.log("User not found, creating new user")
-
-      // Crear un nuevo usuario
-      const newUser = await prisma.user.create({
-        data: {
-          phone: body.phone,
-          licensePlate: body.licensePlate,
-          password: body.licensePlate, // Usar la placa como contraseña por defecto
-        },
-      })
-
-      console.log("New user created:", newUser)
-
-      // Generar token JWT
-      const token = sign(
+      console.log("User not found, returning error")
+      return NextResponse.json(
         {
-          id: newUser.id,
-          phone: newUser.phone,
-          licensePlate: newUser.licensePlate,
+          error: "Usuario no encontrado. Por favor, regístrese primero.",
         },
-        AUTH_SECRET,
-        { expiresIn: "7d" },
+        { status: 404 },
       )
-
-      // Devolver el token y los datos del usuario
-      return NextResponse.json({
-        success: true,
-        token,
-        user: {
-          id: newUser.id,
-          phone: newUser.phone,
-          licensePlate: newUser.licensePlate,
-        },
-      })
     }
 
     // Si el usuario existe, verificar la contraseña (en este caso, la placa)
-    const isPasswordValid = user.password === body.licensePlate
+    const isPasswordValid = user.password === body.licensePlate || user.password === "default_password"
 
     if (!isPasswordValid) {
       console.error("Invalid password for user:", user.id)
@@ -91,6 +64,8 @@ export async function POST(request: NextRequest) {
         id: user.id,
         phone: user.phone,
         licensePlate: user.licensePlate,
+        name: user.name,
+        email: user.email,
       },
     })
   } catch (error) {

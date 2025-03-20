@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { ArrowLeft, User, MapPin, Calendar, CreditCard, QrCode } from "lucide-react"
+import { ArrowLeft, User, MapPin, Calendar, CreditCard, QrCode, Edit, Save, X } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { use } from "react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { DateTimePicker } from "@/components/datetime-picker"
 
 export default function ReservationDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -32,6 +35,15 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
   const [statusLoading, setStatusLoading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [statusSuccess, setStatusSuccess] = useState<string | null>(null)
+
+  // Estados para la edición
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState({
+    startTime: new Date(),
+    endTime: new Date(),
+    price: "",
+    status: "",
+  })
 
   useEffect(() => {
     const fetchReservationDetails = async () => {
@@ -59,6 +71,16 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
 
         const data = await response.json()
         setReservation(data.reservation)
+
+        // Inicializar el formulario de edición con los datos actuales
+        if (data.reservation) {
+          setEditForm({
+            startTime: new Date(data.reservation.startTime),
+            endTime: new Date(data.reservation.endTime),
+            price: data.reservation.price?.toString() || "0",
+            status: data.reservation.status,
+          })
+        }
       } catch (err) {
         console.error("Error fetching reservation details:", err)
         setError((err as Error).message)
@@ -99,6 +121,48 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
       const data = await response.json()
       setReservation(data.reservation)
       setStatusSuccess("Estado actualizado exitosamente")
+    } catch (err) {
+      setStatusError((err as Error).message)
+    } finally {
+      setStatusLoading(false)
+    }
+  }
+
+  const handleEditReservation = async () => {
+    try {
+      setStatusLoading(true)
+      setStatusError(null)
+      setStatusSuccess(null)
+
+      // Obtener el token de autenticación
+      const adminToken = localStorage.getItem("adminToken")
+      if (!adminToken) {
+        throw new Error("No estás autenticado como administrador")
+      }
+
+      const response = await fetch(`/api/admin/reservations/${reservationId}/edit`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          startTime: editForm.startTime.toISOString(),
+          endTime: editForm.endTime.toISOString(),
+          price: Number.parseFloat(editForm.price),
+          status: editForm.status,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Error del servidor" }))
+        throw new Error(errorData.error || "Error al actualizar la reservación")
+      }
+
+      const data = await response.json()
+      setReservation(data.reservation)
+      setStatusSuccess("Reservación actualizada exitosamente")
+      setIsEditing(false)
     } catch (err) {
       setStatusError((err as Error).message)
     } finally {
@@ -200,6 +264,15 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
         </Button>
         <h1 className="text-2xl font-bold">Detalles de Reservación</h1>
         <div className="flex space-x-2">
+          {!isEditing ? (
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              <Edit className="mr-2 h-4 w-4" /> Editar
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => setIsEditing(false)}>
+              <X className="mr-2 h-4 w-4" /> Cancelar
+            </Button>
+          )}
           <Button variant="destructive" onClick={deleteReservation} disabled={statusLoading}>
             Eliminar
           </Button>
@@ -220,82 +293,50 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+      {isEditing ? (
+        <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <User className="mr-2 h-5 w-5" /> Información del Usuario
-            </CardTitle>
+            <CardTitle>Editar Reservación</CardTitle>
+            <CardDescription>Modifica los detalles de la reservación</CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="space-y-2">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Nombre</dt>
-                <dd>{reservation.user?.name || "No especificado"}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Teléfono</dt>
-                <dd>{reservation.user?.phone || "No especificado"}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Email</dt>
-                <dd>{reservation.user?.email || "No especificado"}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Placa</dt>
-                <dd>{reservation.user?.licensePlate || "No especificado"}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <DateTimePicker
+                  date={editForm.startTime}
+                  setDate={(date) => setEditForm({ ...editForm, startTime: date })}
+                  label="Fecha y hora de inicio"
+                />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <MapPin className="mr-2 h-5 w-5" /> Ubicación y Lugar
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-2">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Ubicación</dt>
-                <dd>{reservation.parkingSpot?.location?.name || "No especificado"}</dd>
+                <DateTimePicker
+                  date={editForm.endTime}
+                  setDate={(date) => setEditForm({ ...editForm, endTime: date })}
+                  label="Fecha y hora de fin"
+                />
               </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Dirección</dt>
-                <dd>{reservation.parkingSpot?.location?.address || "No especificado"}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Ciudad</dt>
-                <dd>{reservation.parkingSpot?.location?.city || "No especificado"}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Lugar</dt>
-                <dd className="text-2xl font-bold text-blue-600">{reservation.parkingSpot?.spotNumber || "N/A"}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Calendar className="mr-2 h-5 w-5" /> Detalles de Reservación
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-2">
-              <div>
-                <dt className="text-sm font-medium text-gray-500">ID</dt>
-                <dd className="font-mono text-xs">{reservation.id}</dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Estado</dt>
-                <dd className="flex items-center space-x-2">
-                  <span>{getStatusBadge(reservation.status)}</span>
-                  <Select value={reservation.status} onValueChange={updateReservationStatus} disabled={statusLoading}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Cambiar estado" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Precio</Label>
+                  <div className="flex items-center">
+                    <span className="mr-2">$</span>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editForm.price}
+                      onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Estado</Label>
+                  <Select
+                    value={editForm.status}
+                    onValueChange={(value) => setEditForm({ ...editForm, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar estado" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PENDING">Pendiente</SelectItem>
@@ -304,160 +345,261 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
                       <SelectItem value="COMPLETED">Completada</SelectItem>
                     </SelectContent>
                   </Select>
-                </dd>
+                </div>
               </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Fecha y hora de inicio</dt>
-                <dd>
-                  {reservation.startTime ? (
-                    <>
-                      {format(new Date(reservation.startTime), "PPP", { locale: es })}
-                      {" a las "}
-                      {format(new Date(reservation.startTime), "HH:mm", { locale: es })}
-                    </>
-                  ) : (
-                    "No especificado"
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Fecha y hora de fin</dt>
-                <dd>
-                  {reservation.endTime ? (
-                    <>
-                      {format(new Date(reservation.endTime), "PPP", { locale: es })}
-                      {" a las "}
-                      {format(new Date(reservation.endTime), "HH:mm", { locale: es })}
-                    </>
-                  ) : (
-                    "No especificado"
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm font-medium text-gray-500">Creada</dt>
-                <dd>
-                  {reservation.createdAt
-                    ? format(new Date(reservation.createdAt), "PPP", { locale: es })
-                    : "No especificado"}
-                </dd>
-              </div>
-            </dl>
+              <Button className="w-full" onClick={handleEditReservation} disabled={statusLoading}>
+                <Save className="mr-2 h-4 w-4" />
+                {statusLoading ? "Guardando..." : "Guardar Cambios"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
-
-        {reservation.payment && (
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <CreditCard className="mr-2 h-5 w-5" /> Información de Pago
+                <User className="mr-2 h-5 w-5" /> Información del Usuario
               </CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="space-y-2">
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">ID de Pago</dt>
-                  <dd className="font-mono text-xs">{reservation.payment.id}</dd>
+                  <dt className="text-sm font-medium text-gray-500">Nombre</dt>
+                  <dd>{reservation.user?.name || "No especificado"}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Monto</dt>
-                  <dd className="text-xl font-bold">
-                    ${reservation.payment.amount.toFixed(2)} {reservation.payment.currency}
-                  </dd>
+                  <dt className="text-sm font-medium text-gray-500">Teléfono</dt>
+                  <dd>{reservation.user?.phone || "No especificado"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Email</dt>
+                  <dd>{reservation.user?.email || "No especificado"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Placa</dt>
+                  <dd>{reservation.user?.licensePlate || "No especificado"}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <MapPin className="mr-2 h-5 w-5" /> Ubicación y Lugar
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-2">
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Ubicación</dt>
+                  <dd>{reservation.parkingSpot?.location?.name || "No especificado"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Dirección</dt>
+                  <dd>{reservation.parkingSpot?.location?.address || "No especificado"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Ciudad</dt>
+                  <dd>{reservation.parkingSpot?.location?.city || "No especificado"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Lugar</dt>
+                  <dd className="text-2xl font-bold text-blue-600">{reservation.parkingSpot?.spotNumber || "N/A"}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Calendar className="mr-2 h-5 w-5" /> Detalles de Reservación
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="space-y-2">
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">ID</dt>
+                  <dd className="font-mono text-xs">{reservation.id}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-500">Estado</dt>
+                  <dd className="flex items-center space-x-2">
+                    <span>{getStatusBadge(reservation.status)}</span>
+                    <Select value={reservation.status} onValueChange={updateReservationStatus} disabled={statusLoading}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Cambiar estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PENDING">Pendiente</SelectItem>
+                        <SelectItem value="CONFIRMED">Confirmada</SelectItem>
+                        <SelectItem value="CANCELLED">Cancelada</SelectItem>
+                        <SelectItem value="COMPLETED">Completada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Fecha y hora de inicio</dt>
                   <dd>
-                    {reservation.payment.status === "COMPLETED" ? (
-                      <Badge variant="outline" className="bg-green-100 text-green-800">
-                        Completado
-                      </Badge>
-                    ) : reservation.payment.status === "PENDING" ? (
-                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                        Pendiente
-                      </Badge>
-                    ) : reservation.payment.status === "FAILED" ? (
-                      <Badge variant="outline" className="bg-red-100 text-red-800">
-                        Fallido
-                      </Badge>
+                    {reservation.startTime ? (
+                      <>
+                        {format(new Date(reservation.startTime), "PPP", { locale: es })}
+                        {" a las "}
+                        {format(new Date(reservation.startTime), "HH:mm", { locale: es })}
+                      </>
                     ) : (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                        {reservation.payment.status}
-                      </Badge>
+                      "No especificado"
                     )}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Método de Pago</dt>
-                  <dd>{reservation.payment.paymentMethod}</dd>
-                </div>
-                {reservation.payment.transactionId && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">ID de Transacción</dt>
-                    <dd className="font-mono text-xs">{reservation.payment.transactionId}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Fecha</dt>
+                  <dt className="text-sm font-medium text-gray-500">Fecha y hora de fin</dt>
                   <dd>
-                    {reservation.payment.createdAt
-                      ? format(new Date(reservation.payment.createdAt), "PPP", { locale: es })
+                    {reservation.endTime ? (
+                      <>
+                        {format(new Date(reservation.endTime), "PPP", { locale: es })}
+                        {" a las "}
+                        {format(new Date(reservation.endTime), "HH:mm", { locale: es })}
+                      </>
+                    ) : (
+                      "No especificado"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Precio</dt>
+                  <dd className="text-xl font-bold">${reservation.price || "0.00"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Creada</dt>
+                  <dd>
+                    {reservation.createdAt
+                      ? format(new Date(reservation.createdAt), "PPP", { locale: es })
                       : "No especificado"}
                   </dd>
                 </div>
               </dl>
             </CardContent>
           </Card>
-        )}
 
-        {reservation.qrCode && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <QrCode className="mr-2 h-5 w-5" /> Código QR
-              </CardTitle>
-              <CardDescription>Código para acceso al estacionamiento</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center">
-              <div className="bg-white p-4 rounded-lg mb-4">
-                <div className="text-center mb-2">
-                  <p className="text-3xl font-bold font-mono">{reservation.qrCode}</p>
-                </div>
-              </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline">Ver Instrucciones de Verificación</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Verificación de Código QR</DialogTitle>
-                    <DialogDescription>Instrucciones para verificar el código QR</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    <p>Para verificar este código QR:</p>
-                    <ol className="list-decimal pl-5 space-y-2">
-                      <li>Utilice la aplicación de administrador</li>
-                      <li>Seleccione la opción "Verificar QR"</li>
-                      <li>
-                        Ingrese el código: <span className="font-mono font-bold">{reservation.qrCode}</span>
-                      </li>
-                      <li>O escanee el código QR directamente</li>
-                    </ol>
-                    <p className="text-sm text-muted-foreground mt-4">
-                      Este código es válido desde{" "}
-                      {reservation.startTime
-                        ? format(new Date(reservation.startTime), "PPP HH:mm", { locale: es })
-                        : "N/A"}{" "}
-                      hasta{" "}
-                      {reservation.endTime ? format(new Date(reservation.endTime), "PPP HH:mm", { locale: es }) : "N/A"}
-                    </p>
+          {reservation.payment && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CreditCard className="mr-2 h-5 w-5" /> Información de Pago
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">ID de Pago</dt>
+                    <dd className="font-mono text-xs">{reservation.payment.id}</dd>
                   </div>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Monto</dt>
+                    <dd className="text-xl font-bold">
+                      ${reservation.payment.amount.toFixed(2)} {reservation.payment.currency}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Estado</dt>
+                    <dd>
+                      {reservation.payment.status === "COMPLETED" ? (
+                        <Badge variant="outline" className="bg-green-100 text-green-800">
+                          Completado
+                        </Badge>
+                      ) : reservation.payment.status === "PENDING" ? (
+                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                          Pendiente
+                        </Badge>
+                      ) : reservation.payment.status === "FAILED" ? (
+                        <Badge variant="outline" className="bg-red-100 text-red-800">
+                          Fallido
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                          {reservation.payment.status}
+                        </Badge>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Método de Pago</dt>
+                    <dd>{reservation.payment.paymentMethod}</dd>
+                  </div>
+                  {reservation.payment.transactionId && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">ID de Transacción</dt>
+                      <dd className="font-mono text-xs">{reservation.payment.transactionId}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Fecha</dt>
+                    <dd>
+                      {reservation.payment.createdAt
+                        ? format(new Date(reservation.payment.createdAt), "PPP", { locale: es })
+                        : "No especificado"}
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+          )}
+
+          {reservation.qrCode && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <QrCode className="mr-2 h-5 w-5" /> Código QR
+                </CardTitle>
+                <CardDescription>Código para acceso al estacionamiento</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center">
+                <div className="bg-white p-4 rounded-lg mb-4">
+                  <div className="text-center mb-2">
+                    <p className="text-3xl font-bold font-mono">{reservation.qrCode}</p>
+                  </div>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">Ver Instrucciones de Verificación</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Verificación de Código QR</DialogTitle>
+                      <DialogDescription>Instrucciones para verificar el código QR</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <p>Para verificar este código QR:</p>
+                      <ol className="list-decimal pl-5 space-y-2">
+                        <li>Utilice la aplicación de administrador</li>
+                        <li>Seleccione la opción "Verificar QR"</li>
+                        <li>
+                          Ingrese el código: <span className="font-mono font-bold">{reservation.qrCode}</span>
+                        </li>
+                        <li>O escanee el código QR directamente</li>
+                      </ol>
+                      <p className="text-sm text-muted-foreground mt-4">
+                        Este código es válido desde{" "}
+                        {reservation.startTime
+                          ? format(new Date(reservation.startTime), "PPP HH:mm", { locale: es })
+                          : "N/A"}{" "}
+                        hasta{" "}
+                        {reservation.endTime
+                          ? format(new Date(reservation.endTime), "PPP HH:mm", { locale: es })
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -5,15 +5,17 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
 
 export default function UserLoginPage() {
   const router = useRouter()
-  const [phone, setPhone] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [countryCode, setCountryCode] = useState("+52")
   const [licensePlate, setLicensePlate] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +26,9 @@ export default function UserLoginPage() {
     setError(null)
 
     try {
-      console.log("Submitting login with:", { phone, licensePlate })
+      // Combinar código de país y número de teléfono
+      const fullPhone = `${countryCode}${phoneNumber}`
+      console.log("Submitting login with:", { phone: fullPhone, licensePlate })
 
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -32,7 +36,7 @@ export default function UserLoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phone,
+          phone: fullPhone,
           licensePlate,
         }),
       })
@@ -42,6 +46,12 @@ export default function UserLoginPage() {
       // Si la respuesta no es exitosa, mostrar el error
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Error de servidor" }))
+
+        // Si el error es 404 (usuario no encontrado), mostrar un mensaje específico
+        if (response.status === 404) {
+          throw new Error(errorData.error || "Usuario no encontrado. Por favor, regístrese primero.")
+        }
+
         throw new Error(errorData.error || "Error al iniciar sesión")
       }
 
@@ -90,14 +100,27 @@ export default function UserLoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Teléfono</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+52 (81) 1234-5678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
+              <div className="flex">
+                <Select value={countryCode} onValueChange={setCountryCode}>
+                  <SelectTrigger className="w-24">
+                    <SelectValue placeholder="+52" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="+52">+52</SelectItem>
+                    <SelectItem value="+1">+1</SelectItem>
+                    <SelectItem value="+44">+44</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="Número de teléfono"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="flex-1 ml-2"
+                  required
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="licensePlate">Placa</Label>
@@ -118,21 +141,21 @@ export default function UserLoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
-            <div className="text-center mt-4">
-              <p className="text-sm text-muted-foreground">
-                ¿No tienes una cuenta?{" "}
-                <Link href="/register" className="text-blue-600 hover:underline">
-                  Regístrate
-                </Link>
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                <Link href="/admin/login" className="text-blue-600 hover:underline">
-                  Iniciar sesión como administrador
-                </Link>
-              </p>
-            </div>
           </form>
         </CardContent>
+        <CardFooter className="flex flex-col space-y-2">
+          <p className="text-sm text-center text-muted-foreground">
+            ¿No tienes una cuenta?{" "}
+            <Link href="/register" className="text-blue-600 hover:underline">
+              Regístrate aquí
+            </Link>
+          </p>
+          <p className="text-sm text-center text-muted-foreground">
+            <Link href="/admin/login" className="text-blue-600 hover:underline">
+              Iniciar sesión como administrador
+            </Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   )

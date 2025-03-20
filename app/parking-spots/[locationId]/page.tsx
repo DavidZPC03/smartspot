@@ -12,6 +12,7 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { use } from "react"
+import { DateTimePicker } from "@/components/datetime-picker"
 
 interface Location {
   id: string
@@ -35,6 +36,12 @@ export default function ParkingSpotsPage({
   const [location, setLocation] = useState<Location | null>(null)
   const [parkingSpots, setParkingSpots] = useState<ParkingSpot[]>([])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [startTime, setStartTime] = useState<Date>(new Date())
+  const [endTime, setEndTime] = useState<Date>(() => {
+    const date = new Date()
+    date.setHours(date.getHours() + 2) // Por defecto, 2 horas después
+    return date
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -107,14 +114,21 @@ export default function ParkingSpotsPage({
     }
   }
 
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      setSelectedDate(date)
-      fetchParkingSpots()
-    }
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date)
+    fetchParkingSpots()
   }
 
   const handleSelectSpot = (spotId: string) => {
+    // Guardar la información de tiempo en sessionStorage
+    sessionStorage.setItem(
+      "reservationTimes",
+      JSON.stringify({
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      }),
+    )
+
     router.push(`/payment/${locationId}/${spotId}`)
   }
 
@@ -153,25 +167,40 @@ export default function ParkingSpotsPage({
             <p className="text-sm text-muted-foreground">{location.address}</p>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <p className="text-sm font-medium mb-2">Selecciona una fecha:</p>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(selectedDate, "PPP", { locale: es })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateChange}
-                    initialFocus
-                    locale={es}
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Selecciona fecha de reserva</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(selectedDate, "PPP", { locale: es })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && handleDateChange(date)}
+                      initialFocus
+                      locale={es}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-sm font-medium">Hora de entrada</span>
+                  <DateTimePicker date={startTime} setDate={setStartTime} showTimeOnly={true} />
+                </div>
+
+                <div>
+                  <span className="text-sm font-medium">Hora de salida</span>
+                  <DateTimePicker date={endTime} setDate={setEndTime} showTimeOnly={true} />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

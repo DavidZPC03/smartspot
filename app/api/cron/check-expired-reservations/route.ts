@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron job secret (in a real app)
+    // Verificar cron job secret (en una app real)
     const authHeader = request.headers.get("authorization")
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -55,9 +55,46 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Actualizar disponibilidad de espacios de estacionamiento
+    // Primero, marcar todos como disponibles
+    await prisma.parkingSpot.updateMany({
+      data: {
+        isAvailable: true,
+      },
+    })
+
+    // Luego, encontrar espacios con reservaciones activas
+    const activeReservations = await prisma.reservation.findMany({
+      where: {
+        status: "CONFIRMED",
+        startTime: {
+          lte: now,
+        },
+        endTime: {
+          gt: now,
+        },
+      },
+      select: {
+        parkingSpotId: true,
+      },
+    })
+
+    // Marcar espacios con reservaciones activas como no disponibles
+    for (const reservation of activeReservations) {
+      await prisma.parkingSpot.update({
+        where: {
+          id: reservation.parkingSpotId,
+        },
+        data: {
+          isAvailable: false,
+        },
+      })
+    }
+
     return NextResponse.json({
       expired: expiredReservations.length,
       completed: completedReservations.length,
+      active: activeReservations.length,
     })
   } catch (error) {
     console.error("Error checking expired reservations:", error)

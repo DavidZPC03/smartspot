@@ -48,9 +48,19 @@ export async function GET(request: NextRequest) {
       where: whereClause,
     })
 
-    // Obtener los usuarios con paginación
+    // Obtener los usuarios con paginación, excluyendo el campo password
     const users = await prisma.user.findMany({
       where: whereClause,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        licensePlate: true,
+        createdAt: true,
+        updatedAt: true,
+        // Excluimos password para evitar el error
+      },
       skip,
       take: limit,
       orderBy: {

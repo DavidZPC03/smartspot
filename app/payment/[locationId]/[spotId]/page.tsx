@@ -36,6 +36,14 @@ export default function PaymentPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [processingPayment, setProcessingPayment] = useState(false)
+  const [arrivalDate, setArrivalDate] = useState<Date>(new Date())
+  const [departureDate, setDepartureDate] = useState<Date>(() => {
+    const date = new Date()
+    date.setHours(date.getHours() + 2)
+    return date
+  })
+  const [totalHours, setTotalHours] = useState<number>(2)
+  const [totalPrice, setTotalPrice] = useState<number>(0)
 
   // Unwrap params using React.use()
   const unwrappedParams = use(params)
@@ -46,6 +54,14 @@ export default function PaymentPage({
     const fetchData = async () => {
       try {
         console.log("Fetching data for payment page. LocationID:", locationId, "SpotID:", spotId)
+
+        // Recuperar tiempos de sessionStorage
+        const storedTimes = sessionStorage.getItem("reservationTimes")
+        if (storedTimes) {
+          const times = JSON.parse(storedTimes)
+          setArrivalDate(new Date(times.startTime))
+          setDepartureDate(new Date(times.endTime))
+        }
 
         // Fetch location details
         const locationResponse = await fetch(`/api/location-details?id=${locationId}`)
@@ -98,6 +114,16 @@ export default function PaymentPage({
     fetchData()
   }, [locationId, spotId])
 
+  // Calcular horas y precio total cuando cambian las fechas o el precio del spot
+  useEffect(() => {
+    if (parkingSpot) {
+      const diffMs = departureDate.getTime() - arrivalDate.getTime()
+      const diffHours = Math.ceil(diffMs / (1000 * 60 * 60))
+      setTotalHours(diffHours > 0 ? diffHours : 1)
+      setTotalPrice(parkingSpot.price * (diffHours > 0 ? diffHours : 1))
+    }
+  }, [arrivalDate, departureDate, parkingSpot])
+
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault()
     setProcessingPayment(true)
@@ -117,9 +143,9 @@ export default function PaymentPage({
         },
         body: JSON.stringify({
           parkingSpotId: spotId,
-          startTime: new Date().toISOString(),
-          endTime: new Date(new Date().setHours(new Date().getHours() + 2)).toISOString(),
-          price: parkingSpot?.price || 0,
+          startTime: arrivalDate.toISOString(),
+          endTime: departureDate.toISOString(),
+          price: totalPrice,
           paymentMethod: "card",
           paymentId: "pm_" + Math.random().toString(36).substring(2, 15),
         }),
@@ -147,7 +173,7 @@ export default function PaymentPage({
         qrCode: data.reservation.qrCode,
         startTime: data.reservation.startTime,
         endTime: data.reservation.endTime,
-        price: data.reservation.price || parkingSpot?.price,
+        price: data.reservation.price || totalPrice,
         paymentId: data.reservation.paymentId,
         // Agregar información adicional que podría ser útil
         spotNumber: parkingSpot?.spotNumber,
@@ -193,10 +219,6 @@ export default function PaymentPage({
     )
   }
 
-  // Calcular fechas para mostrar
-  const arrivalDate = new Date()
-  const departureDate = new Date(new Date().setHours(new Date().getHours() + 2))
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-700 p-4">
       <Card className="w-full max-w-md">
@@ -223,9 +245,17 @@ export default function PaymentPage({
                 {format(departureDate, "PPP", { locale: es })} {format(departureDate, "HH:mm")}
               </span>
             </div>
+            <div className="flex justify-between text-sm">
+              <span>Duración:</span>
+              <span className="font-medium">{totalHours} hora(s)</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Precio por hora:</span>
+              <span className="font-medium">${parkingSpot.price}</span>
+            </div>
             <div className="flex justify-between text-sm font-bold mt-2">
               <span>Total a pagar:</span>
-              <span>${parkingSpot.price}</span>
+              <span>${totalPrice}</span>
             </div>
           </div>
 

@@ -13,8 +13,8 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   email        String?  @unique
-  name         String?
-  password     String?
+  name         String?  @default("Usuario")
+  password     String   @default("default_password")
   phone        String?  @unique
   licensePlate String?
   createdAt    DateTime @default(now())
@@ -27,6 +27,7 @@ model Location {
   address      String
   latitude     Float?
   longitude    Float?
+  totalSpots   Int           @default(0)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   parkingSpots ParkingSpot[]
@@ -57,5 +58,17 @@ model Reservation {
   status        String      @default("pending") // pending, confirmed, cancelled
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  emailLogs     EmailLog[]
+}
+
+model EmailLog {
+  id            String       @id @default(cuid())
+  to            String
+  subject       String
+  sentAt        DateTime     @default(now())
+  status        String       // SENT, FAILED
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+  createdAt     DateTime     @default(now())
 }
 

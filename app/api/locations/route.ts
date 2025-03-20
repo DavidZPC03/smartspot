@@ -8,11 +8,16 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get("query") || ""
     console.log("Fetching locations with query:", query)
 
-    // Get all locations, with optional search
+    // Get all locations, con búsqueda opcional pero sin usar 'existe'
     const locations = await prisma.location.findMany({
-      where: {
-        OR: [{ name: { contains: query, mode: "insensitive" } }, { address: { contains: query, mode: "insensitive" } }],
-      },
+      where: query
+        ? {
+            OR: [
+              { name: { contains: query, mode: "insensitive" } },
+              { address: { contains: query, mode: "insensitive" } },
+            ],
+          }
+        : {},
       orderBy: {
         name: "asc",
       },

@@ -1,14 +1,13 @@
 {
-    "crons": [
-      {
-        "path": "/api/cron/check-expired-reservations",
-        "schedule": "0 * * * *"
-      },
-      {
-        "path": "/api/cron/send-reminders",
-        "schedule": "*/15 * * * *"
-      }
-    ]
-  }
-  
-  
+  "crons": [
+    {
+      "path": "/api/cron/check-expired-reservations",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/send-reminders",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
+

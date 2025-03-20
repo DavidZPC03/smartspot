@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
+import { sendReceiptEmail } from "@/lib/email-service"
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,8 +29,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Lugar de estacionamiento no encontrado" }, { status: 404 })
     }
 
+    // Verificar que el lugar esté disponible
+    if (!parkingSpot.isAvailable) {
+      console.error("Parking spot is not available:", body.parkingSpotId)
+      return NextResponse.json({ error: "El lugar de estacionamiento no está disponible" }, { status: 400 })
+    }
+
     // Generar un código QR único (usando crypto en lugar de uuid)
-    const qrCode = crypto.randomBytes(16).toString("hex")
+    const qrCode = crypto.randomBytes(6).toString("hex").toUpperCase()
 
     // Crear la reservación en la base de datos
     const reservation = await prisma.reservation.create({
@@ -46,6 +53,52 @@ export async function POST(request: NextRequest) {
     })
 
     console.log("Reservation created successfully:", reservation)
+
+    // Marcar inmediatamente el lugar como no disponible
+    await prisma.parkingSpot.update({
+      where: {
+        id: body.parkingSpotId,
+      },
+      data: {
+        isAvailable: false,
+      },
+    })
+
+    console.log("Parking spot marked as unavailable:", body.parkingSpotId)
+
+    // Obtener información del usuario para enviar el correo
+    const token = request.headers.get("authorization")?.split(" ")[1]
+    let userEmail = null
+
+    if (token) {
+      try {
+        // Decodificar el token para obtener el ID del usuario
+        const decoded = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString())
+
+        if (decoded.id) {
+          const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            select: { email: true },
+          })
+
+          userEmail = user?.email
+        }
+      } catch (e) {
+        console.error("Error decoding token:", e)
+      }
+    }
+
+    // Enviar correo de confirmación si hay un correo disponible
+    if (userEmail) {
+      await sendReceiptEmail(userEmail, reservation.id, {
+        spotNumber: parkingSpot.spotNumber,
+        locationName: parkingSpot.location.name,
+        startTime: reservation.startTime,
+        endTime: reservation.endTime,
+        price: reservation.price,
+        qrCode: reservation.qrCode,
+      })
+    }
 
     // Devolver la reservación creada
     return NextResponse.json({

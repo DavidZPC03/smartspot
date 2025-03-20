@@ -50,6 +50,7 @@
     "lucide-react": "^0.454.0",
     "next": "15.1.0",
     "next-themes": "^0.4.4",
+    "nodemailer": "^6.10.0",
     "prisma": "latest",
     "qr-code-styling": "^1.9.1",
     "qrcode": "latest",
@@ -66,7 +67,9 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22",
+    "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8",
