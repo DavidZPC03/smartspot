@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { use } from "react"
 import { DateTimePicker } from "@/components/datetime-picker"
+import { ArrowLeft } from "lucide-react"
 
 interface Location {
   id: string
@@ -161,6 +162,12 @@ export default function ParkingSpotsPage({
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-500 to-blue-700 p-4">
       <div className="container mx-auto max-w-md">
+        <div className="mb-4">
+          <Button variant="outline" onClick={() => router.push("/locations")} className="bg-white hover:bg-gray-100">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Volver a ubicaciones
+          </Button>
+        </div>
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-xl font-bold">{location.name}</CardTitle>
@@ -217,19 +224,51 @@ export default function ParkingSpotsPage({
         ) : parkingSpots.length === 0 ? (
           <p className="text-center text-white">No hay lugares disponibles</p>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            {parkingSpots.map((spot) => (
-              <Card key={spot.id} className={cn("text-center", !spot.isAvailable && "opacity-50")}>
-                <CardContent className="p-4">
-                  <p className="text-3xl font-bold mb-2">{spot.spotNumber}</p>
-                  <p className="text-sm mb-3">${spot.price}/hora</p>
-                  <Button onClick={() => handleSelectSpot(spot.id)} className="w-full" disabled={!spot.isAvailable}>
-                    {spot.isAvailable ? "Seleccionar" : "No disponible"}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                <span className="text-white text-sm">Disponible</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                <span className="text-white text-sm">Ocupado</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {parkingSpots.map((spot) => (
+                <Card
+                  key={spot.id}
+                  className={cn(
+                    "text-center border-2",
+                    spot.isAvailable ? "border-green-500 bg-white" : "border-red-500 bg-gray-100",
+                  )}
+                >
+                  <CardContent className="p-4">
+                    <div
+                      className={cn(
+                        "absolute top-2 right-2 w-3 h-3 rounded-full",
+                        spot.isAvailable ? "bg-green-500" : "bg-red-500",
+                      )}
+                    />
+                    <p className="text-3xl font-bold mb-2">{spot.spotNumber}</p>
+                    <p className="text-sm mb-3">${spot.price}/hora</p>
+                    <Button
+                      onClick={() => handleSelectSpot(spot.id)}
+                      className={cn(
+                        "w-full",
+                        spot.isAvailable ? "bg-green-600 hover:bg-green-700" : "bg-red-600 cursor-not-allowed",
+                      )}
+                      disabled={!spot.isAvailable}
+                    >
+                      {spot.isAvailable ? "Seleccionar" : "Ocupado"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

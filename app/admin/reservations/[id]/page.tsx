@@ -238,6 +238,43 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
     }
   }
 
+  const getStripePaymentStatusBadge = (status: string) => {
+    switch (status) {
+      case "succeeded":
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800">
+            Completado
+          </Badge>
+        )
+      case "processing":
+        return (
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+            Procesando
+          </Badge>
+        )
+      case "requires_payment_method":
+        return (
+          <Badge variant="outline" className="bg-orange-100 text-orange-800">
+            Requiere método de pago
+          </Badge>
+        )
+      case "requires_confirmation":
+        return (
+          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+            Requiere confirmación
+          </Badge>
+        )
+      case "canceled":
+        return (
+          <Badge variant="outline" className="bg-red-100 text-red-800">
+            Cancelado
+          </Badge>
+        )
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Cargando...</div>
   }
@@ -380,6 +417,12 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
                   <dt className="text-sm font-medium text-gray-500">Placa</dt>
                   <dd>{reservation.user?.licensePlate || "No especificado"}</dd>
                 </div>
+                {reservation.user?.stripeCustomerId && (
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">ID de Cliente Stripe</dt>
+                    <dd className="font-mono text-xs">{reservation.user.stripeCustomerId}</dd>
+                  </div>
+                )}
               </dl>
             </CardContent>
           </Card>
@@ -485,64 +528,42 @@ export default function ReservationDetailsPage({ params }: { params: { id: strin
             </CardContent>
           </Card>
 
-          {reservation.payment && (
+          {/* Tarjeta de información de pago de Stripe */}
+          {reservation.stripePaymentIntentId && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <CreditCard className="mr-2 h-5 w-5" /> Información de Pago
+                  <CreditCard className="mr-2 h-5 w-5" /> Información de Pago Stripe
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <dl className="space-y-2">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">ID de Pago</dt>
-                    <dd className="font-mono text-xs">{reservation.payment.id}</dd>
+                    <dt className="text-sm font-medium text-gray-500">ID de PaymentIntent</dt>
+                    <dd className="font-mono text-xs">{reservation.stripePaymentIntentId}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Monto</dt>
-                    <dd className="text-xl font-bold">
-                      ${reservation.payment.amount.toFixed(2)} {reservation.payment.currency}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Estado</dt>
+                    <dt className="text-sm font-medium text-gray-500">Estado de Pago</dt>
                     <dd>
-                      {reservation.payment.status === "COMPLETED" ? (
-                        <Badge variant="outline" className="bg-green-100 text-green-800">
-                          Completado
-                        </Badge>
-                      ) : reservation.payment.status === "PENDING" ? (
-                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                          Pendiente
-                        </Badge>
-                      ) : reservation.payment.status === "FAILED" ? (
-                        <Badge variant="outline" className="bg-red-100 text-red-800">
-                          Fallido
-                        </Badge>
+                      {reservation.stripePaymentStatus ? (
+                        getStripePaymentStatusBadge(reservation.stripePaymentStatus)
                       ) : (
                         <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                          {reservation.payment.status}
+                          No disponible
                         </Badge>
                       )}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Método de Pago</dt>
-                    <dd>{reservation.payment.paymentMethod}</dd>
-                  </div>
-                  {reservation.payment.transactionId && (
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">ID de Transacción</dt>
-                      <dd className="font-mono text-xs">{reservation.payment.transactionId}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Fecha</dt>
-                    <dd>
-                      {reservation.payment.createdAt
-                        ? format(new Date(reservation.payment.createdAt), "PPP", { locale: es })
-                        : "No especificado"}
+                    <dd className="flex items-center">
+                      <CreditCard className="mr-2 h-4 w-4 text-blue-500" />
+                      <span>Tarjeta de crédito (Stripe)</span>
                     </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Monto</dt>
+                    <dd className="text-xl font-bold">${reservation.price || "0.00"}</dd>
                   </div>
                 </dl>
               </CardContent>

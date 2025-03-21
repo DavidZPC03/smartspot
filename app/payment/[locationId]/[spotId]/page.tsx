@@ -1,17 +1,16 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { use } from "react"
+import StripeProvider from "@/components/stripe-provider"
+import StripePaymentForm from "@/components/stripe-payment-form"
+import { ArrowLeft } from "lucide-react" // Importar ícono para el botón de regresar
 
 interface Location {
   id: string
@@ -44,6 +43,8 @@ export default function PaymentPage({
   })
   const [totalHours, setTotalHours] = useState<number>(2)
   const [totalPrice, setTotalPrice] = useState<number>(0)
+  const [clientSecret, setClientSecret] = useState<string>("")
+  const [paymentIntentId, setPaymentIntentId] = useState<string>("")
 
   // Unwrap params using React.use()
   const unwrappedParams = use(params)
@@ -124,57 +125,69 @@ export default function PaymentPage({
     }
   }, [arrivalDate, departureDate, parkingSpot])
 
-  const handlePayment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setProcessingPayment(true)
-    setError(null)
+  // Crear un PaymentIntent cuando se carga la página
+  useEffect(() => {
+    const createPaymentIntent = async () => {
+      if (!parkingSpot || !totalPrice) return
 
+      try {
+        setProcessingPayment(true)
+
+        // Verificar que el token existe
+        const token = localStorage.getItem("token")
+        if (!token) {
+          throw new Error("No se encontró token de autenticación. Por favor, inicia sesión nuevamente.")
+        }
+
+        console.log("Creando intención de pago con token:", token ? "Presente" : "No encontrado")
+
+        const response = await fetch("/api/payments/create-intent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            parkingSpotId: spotId,
+            startTime: arrivalDate.toISOString(),
+            endTime: departureDate.toISOString(),
+            price: totalPrice,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error("Error response:", errorData)
+          throw new Error(errorData.error || "Error al crear intención de pago")
+        }
+
+        const data = await response.json()
+        console.log("PaymentIntent creado:", data)
+        setClientSecret(data.clientSecret)
+        setPaymentIntentId(data.paymentIntentId)
+      } catch (err) {
+        console.error("Error creating payment intent:", err)
+        setError((err as Error).message)
+      } finally {
+        setProcessingPayment(false)
+      }
+    }
+
+    if (parkingSpot && totalPrice > 0) {
+      createPaymentIntent()
+    }
+  }, [parkingSpot, totalPrice, spotId, arrivalDate, departureDate])
+
+  const handlePaymentSuccess = async (paymentIntentId: string) => {
     try {
-      console.log("Processing payment for spot:", spotId, "at location:", locationId)
-
-      // Simular un tiempo de procesamiento
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Crear la reservación
-      const response = await fetch("/api/reservations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          parkingSpotId: spotId,
-          startTime: arrivalDate.toISOString(),
-          endTime: departureDate.toISOString(),
-          price: totalPrice,
-          paymentMethod: "card",
-          paymentId: "pm_" + Math.random().toString(36).substring(2, 15),
-        }),
-      })
-
-      console.log("Reservation response status:", response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Error al procesar el pago")
-      }
-
-      const data = await response.json()
-      console.log("Reservation created:", data)
-
-      // Verificar la respuesta de la API
-      if (!data.success || !data.reservation) {
-        console.error("API returned success=false or missing reservation data:", data)
-        throw new Error("Error al crear la reservación: " + (data.error || "Respuesta inválida del servidor"))
-      }
-
       // Guardar los datos de la reservación en sessionStorage para usarlos en la página de confirmación
       const reservationData = {
-        id: data.reservation.id,
-        qrCode: data.reservation.qrCode,
-        startTime: data.reservation.startTime,
-        endTime: data.reservation.endTime,
-        price: data.reservation.price || totalPrice,
-        paymentId: data.reservation.paymentId,
+        id: paymentIntentId, // Usamos el ID del PaymentIntent como ID de reservación temporal
+        qrCode: "Procesando...", // El código QR se generará en el servidor
+        startTime: arrivalDate.toISOString(),
+        endTime: departureDate.toISOString(),
+        price: totalPrice,
+        paymentId: paymentIntentId,
         // Agregar información adicional que podría ser útil
         spotNumber: parkingSpot?.spotNumber,
         locationName: location?.name,
@@ -187,10 +200,18 @@ export default function PaymentPage({
       // Redirigir a la página de confirmación
       router.push(`/confirmation/${locationId}/${spotId}`)
     } catch (err) {
-      console.error("Payment error:", err)
+      console.error("Error handling payment success:", err)
       setError((err as Error).message)
-      setProcessingPayment(false)
     }
+  }
+
+  const handlePaymentError = (errorMessage: string) => {
+    setError(errorMessage)
+  }
+
+  // Función para volver a la página anterior
+  const handleGoBack = () => {
+    router.back()
   }
 
   if (loading) {
@@ -221,6 +242,14 @@ export default function PaymentPage({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-700 p-4">
+      {/* Botón para regresar */}
+      <div className="w-full max-w-md mb-4">
+        <Button variant="outline" onClick={handleGoBack} className="bg-white hover:bg-gray-100">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Regresar
+        </Button>
+      </div>
+
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-xl font-bold">{location.name}</CardTitle>
@@ -259,56 +288,20 @@ export default function PaymentPage({
             </div>
           </div>
 
-          <form onSubmit={handlePayment} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cardNumber">Número de tarjeta</Label>
-              <Input
-                id="cardNumber"
-                placeholder="1234 5678 9012 3456"
-                required
-                maxLength={19}
-                pattern="[0-9\s]{13,19}"
-                title="Número de tarjeta (13-19 dígitos)"
+          {clientSecret ? (
+            <StripeProvider>
+              <StripePaymentForm
+                clientSecret={clientSecret}
+                amount={totalPrice}
+                onSuccess={handlePaymentSuccess}
+                onError={handlePaymentError}
               />
+            </StripeProvider>
+          ) : (
+            <div className="flex justify-center">
+              <p>Cargando opciones de pago...</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="expiry">Fecha de expiración</Label>
-                <Input
-                  id="expiry"
-                  placeholder="MM/AA"
-                  required
-                  maxLength={5}
-                  pattern="(0[1-9]|1[0-2])\/[0-9]{2}"
-                  title="Fecha de expiración (MM/AA)"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cvc">CVC</Label>
-                <Input
-                  id="cvc"
-                  placeholder="123"
-                  required
-                  maxLength={4}
-                  pattern="[0-9]{3,4}"
-                  title="CVC (3-4 dígitos)"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre en la tarjeta</Label>
-              <Input id="name" placeholder="Juan Pérez" required />
-            </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={processingPayment}>
-              {processingPayment ? "Procesando..." : "Pagar"}
-            </Button>
-          </form>
+          )}
         </CardContent>
       </Card>
     </div>

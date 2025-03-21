@@ -10,28 +10,40 @@ export async function getUserFromRequest(request: NextRequest) {
     // Obtener el token del encabezado de autorización
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("No se encontró token de autorización en la solicitud")
       return null
     }
 
     const token = authHeader.split(" ")[1]
     if (!token) {
+      console.log("Token vacío en la solicitud")
       return null
     }
 
     // Verificar el token
-    const decoded = verify(token, AUTH_SECRET) as { id: string }
-    if (!decoded || !decoded.id) {
+    try {
+      const decoded = verify(token, AUTH_SECRET) as { id: string }
+      if (!decoded || !decoded.id) {
+        console.log("Token inválido o sin ID de usuario")
+        return null
+      }
+
+      // Buscar el usuario en la base de datos
+      const user = await prisma.user.findUnique({
+        where: {
+          id: decoded.id,
+        },
+      })
+
+      if (!user) {
+        console.log(`Usuario con ID ${decoded.id} no encontrado en la base de datos`)
+      }
+
+      return user
+    } catch (jwtError) {
+      console.error("Error al verificar el token JWT:", jwtError)
       return null
     }
-
-    // Buscar el usuario en la base de datos
-    const user = await prisma.user.findUnique({
-      where: {
-        id: decoded.id,
-      },
-    })
-
-    return user
   } catch (error) {
     console.error("Error getting user from request:", error)
     return null

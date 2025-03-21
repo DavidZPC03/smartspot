@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ArrowLeft } from "lucide-react"
 
 interface Location {
   id: string
@@ -70,6 +71,13 @@ export default function LocationsPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-500 to-blue-700 p-4">
       <div className="container mx-auto max-w-md">
+        <div className="mb-4">
+          <Button variant="outline" onClick={() => router.push("/")} className="bg-white hover:bg-gray-100">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Inicio
+          </Button>
+        </div>
+
         <h1 className="mb-6 text-2xl font-bold text-white text-center">Ubicaciones</h1>
 
         <form onSubmit={handleSearch} className="mb-6">

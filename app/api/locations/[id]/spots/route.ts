@@ -55,10 +55,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         endTime: {
           gte: startOfDay,
         },
-        status: "confirmed",
+        status: {
+          in: ["confirmed", "CONFIRMED", "pending", "PENDING"],
+        },
       },
       select: {
         parkingSpotId: true,
+        status: true,
       },
     })
 
@@ -67,13 +70,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Create a set of reserved spot IDs for quick lookup
     const reservedSpotIds = new Set(reservations.map((r) => r.parkingSpotId))
 
-    // Mark spots as available or not
-    const spotsWithAvailability = parkingSpots.map((spot) => ({
-      id: spot.id,
-      spotNumber: spot.spotNumber,
-      price: spot.price,
-      isAvailable: !reservedSpotIds.has(spot.id),
-    }))
+    // Mark spots as available or not based on both database isAvailable flag and reservations
+    const spotsWithAvailability = parkingSpots.map((spot) => {
+      const isReserved = reservedSpotIds.has(spot.id)
+      return {
+        id: spot.id,
+        spotNumber: spot.spotNumber,
+        price: spot.price,
+        // Un lugar está disponible si no está reservado Y está marcado como disponible en la base de datos
+        isAvailable: !isReserved && spot.isAvailable,
+      }
+    })
 
     return NextResponse.json({
       success: true,

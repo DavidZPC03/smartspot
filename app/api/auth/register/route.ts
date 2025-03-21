@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sign } from "jsonwebtoken"
+import { isValidEmail, isValidPhone, isValidLicensePlate, isValidName } from "@/lib/validations"
 
 // Asegúrate de que AUTH_SECRET esté definido
 const AUTH_SECRET = process.env.AUTH_SECRET || "your-fallback-secret-key-for-development"
@@ -15,9 +16,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nombre, teléfono y placa son requeridos" }, { status: 400 })
     }
 
+    // Validar nombre
+    if (!isValidName(name)) {
+      return NextResponse.json({ error: "El nombre debe tener entre 2 y 100 caracteres" }, { status: 400 })
+    }
+
     // Validate email format if provided
-    if (email && !/\S+@\S+\.\S+/.test(email)) {
+    if (email && !isValidEmail(email)) {
       return NextResponse.json({ error: "Formato de correo electrónico inválido" }, { status: 400 })
+    }
+
+    // Validar formato de teléfono
+    if (!isValidPhone(phone)) {
+      return NextResponse.json({ error: "Formato de teléfono inválido" }, { status: 400 })
+    }
+
+    // Validar formato de placa
+    if (!isValidLicensePlate(licensePlate)) {
+      return NextResponse.json({ error: "Formato de placa inválido" }, { status: 400 })
     }
 
     // Check if user already exists

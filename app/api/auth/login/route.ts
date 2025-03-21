@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sign } from "jsonwebtoken"
+import { isValidPhone, isValidLicensePlate } from "@/lib/validations"
 
 // Asegúrate de que AUTH_SECRET esté definido
 const AUTH_SECRET = process.env.AUTH_SECRET || "your-fallback-secret-key-for-development"
@@ -14,6 +15,16 @@ export async function POST(request: NextRequest) {
     if (!body.phone || !body.licensePlate) {
       console.error("Missing required fields:", { body })
       return NextResponse.json({ error: "Teléfono y placa son requeridos" }, { status: 400 })
+    }
+
+    // Validar formato de teléfono
+    if (!isValidPhone(body.phone)) {
+      return NextResponse.json({ error: "Formato de teléfono inválido" }, { status: 400 })
+    }
+
+    // Validar formato de placa
+    if (!isValidLicensePlate(body.licensePlate)) {
+      return NextResponse.json({ error: "Formato de placa inválido" }, { status: 400 })
     }
 
     // Buscar al usuario por teléfono y placa

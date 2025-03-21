@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
 
+// Importar las funciones de validación
+import { isValidEmail, isValidPhone, isValidLicensePlate, isValidName } from "@/lib/validations"
+
 export default function RegisterPage() {
   const router = useRouter()
   const [name, setName] = useState("")
@@ -22,6 +25,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Actualizar la función handleSubmit para incluir validaciones
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -34,9 +38,31 @@ export default function RegisterPage() {
       return
     }
 
+    // Validar nombre
+    if (!isValidName(name)) {
+      setError("El nombre debe tener entre 2 y 100 caracteres")
+      setLoading(false)
+      return
+    }
+
     // Validar formato de email si se proporciona
-    if (email && !/\S+@\S+\.\S+/.test(email)) {
+    if (email && !isValidEmail(email)) {
       setError("Por favor ingrese un correo electrónico válido")
+      setLoading(false)
+      return
+    }
+
+    // Validar formato de teléfono
+    const fullPhone = `${countryCode}${phone}`
+    if (!isValidPhone(fullPhone)) {
+      setError("Por favor ingrese un número de teléfono válido")
+      setLoading(false)
+      return
+    }
+
+    // Validar formato de placa
+    if (!isValidLicensePlate(plate)) {
+      setError("Por favor ingrese una placa válida (entre 2 y 10 caracteres)")
       setLoading(false)
       return
     }
@@ -50,7 +76,7 @@ export default function RegisterPage() {
         body: JSON.stringify({
           name,
           email,
-          phone: `${countryCode}${phone}`,
+          phone: fullPhone,
           licensePlate: plate,
         }),
       })

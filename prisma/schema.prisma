@@ -6,19 +6,22 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String?  @unique
-  name         String?  @default("Usuario")
-  password     String   @default("default_password")
-  phone        String?  @unique
+  id           String        @id @default(cuid())
+  email        String?       @unique
+  name         String?       @default("Usuario")
+  password     String        @default("default_password")
+  phone        String?       @unique
   licensePlate String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  stripeCustomerId String?   @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reservations Reservation[]
 }
 
 model Location {
@@ -47,6 +50,8 @@ model ParkingSpot {
 
 model Reservation {
   id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
   parkingSpotId String
   parkingSpot   ParkingSpot @relation(fields: [parkingSpotId], references: [id])
   startTime     DateTime
@@ -54,8 +59,10 @@ model Reservation {
   price         Float       @default(0)
   paymentMethod String?
   paymentId     String?
+  stripePaymentIntentId String? @unique
+  stripePaymentStatus String?
   qrCode        String      @unique
-  status        String      @default("pending") // pending, confirmed, cancelled
+  status        String      @default("pending") // pending, confirmed, cancelled, completed
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   emailLogs     EmailLog[]

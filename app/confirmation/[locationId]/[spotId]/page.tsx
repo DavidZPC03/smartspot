@@ -1,12 +1,12 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Download, Check } from "lucide-react"
+import { Download, Check, ArrowLeft, Home } from "lucide-react"
 import QRCode from "@/components/qr-code"
 import { use } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -20,6 +20,7 @@ interface Location {
 interface ParkingSpot {
   id: string
   spotNumber: number
+  price: number
 }
 
 interface Reservation {
@@ -46,6 +47,7 @@ export default function ConfirmationPage({
   const [reservation, setReservation] = useState<Reservation | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pollingCount, setPollingCount] = useState(0)
 
   // Unwrap params using React.use()
   const unwrappedParams = use(params)
@@ -57,11 +59,13 @@ export default function ConfirmationPage({
     const storedReservation = sessionStorage.getItem("confirmedReservation")
     let reservationData = null
     let reservationId = null
+    let isStripePayment = false
 
     if (storedReservation) {
       try {
         reservationData = JSON.parse(storedReservation)
         reservationId = reservationData.id
+        isStripePayment = reservationId.startsWith("pi_") // Stripe payment intent IDs start with pi_
         console.log("Found stored reservation:", reservationData)
 
         // Establecer los datos de la reserva desde sessionStorage
@@ -126,47 +130,10 @@ export default function ConfirmationPage({
           throw new Error("Lugar de estacionamiento no encontrado")
         }
 
-        // Solo intentamos obtener los detalles de la reserva si tenemos un ID
-        // y si no tenemos suficientes datos en sessionStorage
-        if (reservationId && (!reservationData.qrCode || !reservationData.startTime)) {
-          try {
-            console.log("Fetching reservation details for ID:", reservationId)
-            // Nota: No usaremos esta API por ahora, ya que está dando problemas
-            // Usaremos solo los datos de sessionStorage
-            /*
-            const reservationResponse = await fetch(`/api/reservations/${reservationId}`);
-            console.log("Reservation response status:", reservationResponse.status);
-            
-            // Verificar si la respuesta es exitosa
-            if (!reservationResponse.ok) {
-              console.error("Reservation API returned error status:", reservationResponse.status);
-              // No lanzamos error aquí, usamos los datos de sessionStorage como respaldo
-            } else {
-              const reservationApiData = await reservationResponse.json();
-              console.log("Reservation data from API:", reservationApiData);
-              
-              if (reservationApiData.reservation) {
-                setReservation({
-                  id: reservationApiData.reservation.id,
-                  qrCode: reservationApiData.reservation.qrCode,
-                  startTime: reservationApiData.reservation.startTime,
-                  endTime: reservationApiData.reservation.endTime,
-                  spotNumber: reservationApiData.reservation.spotNumber,
-                  locationName: reservationApiData.reservation.locationName,
-                  locationAddress: reservationApiData.reservation.locationAddress,
-                  price: reservationApiData.reservation.price,
-                  paymentId: reservationApiData.reservation.paymentId,
-                  createdAt: reservationApiData.reservation.createdAt,
-                });
-              }
-            }
-            */
-          } catch (reservationError) {
-            console.error("Error fetching reservation details:", reservationError)
-            // No lanzamos error aquí, ya que tenemos los datos de la sesión como respaldo
-          }
-        } else {
-          console.warn("No reservation ID available or sufficient data already in sessionStorage")
+        // Si es un pago de Stripe, necesitamos consultar el estado de la reservación
+        if (isStripePayment && reservationId) {
+          // Intentar crear la reservación manualmente de inmediato
+          await createReservationManually(reservationId, spotId)
         }
       } catch (err) {
         setError((err as Error).message)
@@ -177,7 +144,147 @@ export default function ConfirmationPage({
     }
 
     fetchData()
-  }, [locationId, spotId])
+  }, [locationId, spotId, pollingCount])
+
+  // Función para crear la reservación manualmente si el webhook falló
+  const createReservationManually = async (paymentIntentId: string, spotId: string) => {
+    try {
+      console.log("Creando reservación manualmente para PaymentIntent:", paymentIntentId)
+
+      const token = localStorage.getItem("token")
+      if (!token) {
+        console.warn("No hay token de autenticación disponible")
+        return
+      }
+
+      // Primero verificar si ya existe la reservación
+      const checkResponse = await fetch(`/api/payments/check-status?paymentIntentId=${paymentIntentId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (checkResponse.ok) {
+        const checkData = await checkResponse.json()
+
+        if (checkData.reservation) {
+          console.log("Reservación encontrada en la verificación:", checkData.reservation)
+
+          // Actualizar los datos de la reservación con los datos del servidor
+          setReservation({
+            id: checkData.reservation.id,
+            qrCode: checkData.reservation.qrCode,
+            startTime: checkData.reservation.startTime,
+            endTime: checkData.reservation.endTime,
+            spotNumber: checkData.reservation.parkingSpot?.spotNumber,
+            locationName: checkData.reservation.parkingSpot?.location?.name,
+            locationAddress: checkData.reservation.parkingSpot?.location?.address,
+            price: checkData.reservation.price,
+            paymentId: checkData.reservation.paymentId,
+            createdAt: checkData.reservation.createdAt,
+          })
+
+          // Guardar en sessionStorage para persistencia
+          sessionStorage.setItem(
+            "confirmedReservation",
+            JSON.stringify({
+              id: checkData.reservation.id,
+              qrCode: checkData.reservation.qrCode,
+              startTime: checkData.reservation.startTime,
+              endTime: checkData.reservation.endTime,
+              spotNumber: checkData.reservation.parkingSpot?.spotNumber,
+              locationName: checkData.reservation.parkingSpot?.location?.name,
+              locationAddress: checkData.reservation.parkingSpot?.location?.address,
+              price: checkData.reservation.price,
+              paymentId: checkData.reservation.paymentId,
+              createdAt: checkData.reservation.createdAt,
+            }),
+          )
+
+          return // Si ya existe la reservación, no necesitamos crearla
+        }
+      }
+
+      // Obtener los datos de la reservación de sessionStorage
+      const storedReservation = sessionStorage.getItem("confirmedReservation")
+      if (!storedReservation) {
+        console.warn("No hay datos de reservación en sessionStorage")
+        return
+      }
+
+      const reservationData = JSON.parse(storedReservation)
+
+      // Crear la reservación manualmente
+      const response = await fetch(`/api/reservations/manual-create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          paymentIntentId,
+          parkingSpotId: spotId,
+          startTime: reservationData.startTime,
+          endTime: reservationData.endTime,
+          price: reservationData.price,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Error de servidor" }))
+        console.error("Error al crear reservación manualmente:", errorData)
+
+        // Si falló, intentar nuevamente después de un tiempo
+        setTimeout(() => {
+          setPollingCount(pollingCount + 1)
+        }, 2000)
+
+        return
+      }
+
+      const data = await response.json()
+      console.log("Reservación creada manualmente:", data)
+
+      if (data.success && data.reservation) {
+        setReservation({
+          id: data.reservation.id,
+          qrCode: data.reservation.qrCode,
+          startTime: data.reservation.startTime,
+          endTime: data.reservation.endTime,
+          spotNumber: data.reservation.parkingSpot?.spotNumber,
+          locationName: data.reservation.parkingSpot?.location?.name,
+          locationAddress: data.reservation.parkingSpot?.location?.address,
+          price: data.reservation.price,
+          paymentId: data.reservation.paymentId,
+          createdAt: data.reservation.createdAt,
+        })
+
+        // Actualizar sessionStorage
+        sessionStorage.setItem(
+          "confirmedReservation",
+          JSON.stringify({
+            id: data.reservation.id,
+            qrCode: data.reservation.qrCode,
+            startTime: data.reservation.startTime,
+            endTime: data.reservation.endTime,
+            spotNumber: data.reservation.parkingSpot?.spotNumber,
+            locationName: data.reservation.parkingSpot?.location?.name,
+            locationAddress: data.reservation.parkingSpot?.location?.address,
+            price: data.reservation.price,
+            paymentId: data.reservation.paymentId,
+            createdAt: data.reservation.createdAt,
+          }),
+        )
+      }
+    } catch (error) {
+      console.error("Error al crear reservación manualmente:", error)
+
+      // Si falló, intentar nuevamente después de un tiempo
+      setTimeout(() => {
+        setPollingCount(pollingCount + 1)
+      }, 2000)
+    }
+  }
 
   // Generar datos enriquecidos para el QR
   const generateQRData = () => {
@@ -259,6 +366,12 @@ export default function ConfirmationPage({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-700 p-4">
+      <div className="w-full max-w-md mb-4">
+        <Button variant="outline" onClick={() => router.push("/locations")} className="bg-white hover:bg-gray-100">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Volver a ubicaciones
+        </Button>
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-xl font-bold">{location.name}</CardTitle>
@@ -281,12 +394,19 @@ export default function ConfirmationPage({
             <div className="w-full">
               <h3 className="text-sm font-medium mb-3 text-center">Código QR:</h3>
               <div className="flex justify-center mb-4">
-                <QRCode value={qrData || reservation.qrCode || reservation.id} size={200} />
+                {reservation.qrCode === "Procesando..." ? (
+                  <div className="bg-white p-8 rounded-lg flex items-center justify-center">
+                    <p>Generando código QR...</p>
+                  </div>
+                ) : (
+                  <QRCode value={qrData || reservation.qrCode || reservation.id} size={200} />
+                )}
               </div>
               <Button
                 onClick={handleDownload}
                 variant="outline"
                 className="w-full flex items-center justify-center gap-2"
+                disabled={reservation.qrCode === "Procesando..."}
               >
                 <Download className="h-4 w-4" />
                 Descargar
@@ -315,13 +435,26 @@ export default function ConfirmationPage({
               {reservation.paymentId && (
                 <div className="flex justify-between text-sm">
                   <span>ID de Pago:</span>
-                  <span className="font-medium">{reservation.paymentId}</span>
+                  <span className="font-medium">{reservation.paymentId.substring(0, 12)}...</span>
                 </div>
               )}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Botón grande para volver a ubicaciones */}
+      <div className="w-full max-w-md mt-6">
+        <Button
+          onClick={() => router.push("/locations")}
+          className="w-full py-6 bg-green-600 hover:bg-green-700 text-lg"
+          size="lg"
+        >
+          <Home className="mr-2 h-5 w-5" />
+          Volver a ubicaciones
+        </Button>
+      </div>
     </div>
   )
 }
+

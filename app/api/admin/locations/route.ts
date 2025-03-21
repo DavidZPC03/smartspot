@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verify } from "jsonwebtoken"
+import { isValidLocationName, isValidAddress, isValidTotalSpots } from "@/lib/validations"
 
 // Asegúrate de que AUTH_SECRET esté definido
 const AUTH_SECRET = process.env.AUTH_SECRET || "your-fallback-secret-key-for-development"
@@ -67,8 +68,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nombre y dirección son obligatorios" }, { status: 400 })
     }
 
-    if (!totalSpots || totalSpots < 1) {
-      return NextResponse.json({ error: "El número de lugares debe ser un número positivo" }, { status: 400 })
+    // Validar nombre de ubicación
+    if (!isValidLocationName(name)) {
+      return NextResponse.json({ error: "El nombre debe tener entre 3 y 100 caracteres" }, { status: 400 })
+    }
+
+    // Validar dirección
+    if (!isValidAddress(address)) {
+      return NextResponse.json({ error: "La dirección debe tener entre 5 y 200 caracteres" }, { status: 400 })
+    }
+
+    // Validar número de lugares
+    if (!isValidTotalSpots(totalSpots)) {
+      return NextResponse.json(
+        { error: "El número de lugares debe ser un número positivo menor a 1000" },
+        { status: 400 },
+      )
     }
 
     // Crear la ubicación - solo con los campos que existen en el modelo

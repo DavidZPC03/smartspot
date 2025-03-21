@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
 
+// Importar las funciones de validación
+import { isValidPhone, isValidLicensePlate } from "@/lib/validations"
+
 export default function UserLoginPage() {
   const router = useRouter()
   const [phoneNumber, setPhoneNumber] = useState("")
@@ -20,6 +23,7 @@ export default function UserLoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Actualizar la función handleSubmit para incluir validaciones
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -28,6 +32,17 @@ export default function UserLoginPage() {
     try {
       // Combinar código de país y número de teléfono
       const fullPhone = `${countryCode}${phoneNumber}`
+
+      // Validar formato de teléfono
+      if (!isValidPhone(fullPhone)) {
+        throw new Error("Por favor ingrese un número de teléfono válido")
+      }
+
+      // Validar formato de placa
+      if (!isValidLicensePlate(licensePlate)) {
+        throw new Error("Por favor ingrese una placa válida (entre 2 y 10 caracteres)")
+      }
+
       console.log("Submitting login with:", { phone: fullPhone, licensePlate })
 
       const response = await fetch("/api/auth/login", {

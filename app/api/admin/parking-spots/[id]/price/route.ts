@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verify } from "jsonwebtoken"
+import { isValidPrice } from "@/lib/validations"
 
 // Asegúrate de que AUTH_SECRET esté definido
 const AUTH_SECRET = process.env.AUTH_SECRET || "your-fallback-secret-key-for-development"
@@ -30,8 +31,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const { price } = body
 
     // Validar el precio
-    if (typeof price !== "number" || price < 0) {
-      return NextResponse.json({ error: "Precio inválido" }, { status: 400 })
+    if (!isValidPrice(price)) {
+      return NextResponse.json({ error: "El precio debe ser un número positivo menor a 10000" }, { status: 400 })
     }
 
     // Verificar si el lugar existe

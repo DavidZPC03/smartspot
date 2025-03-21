@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Calendar, Users, MapPin, CreditCard } from "lucide-react"
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -82,20 +83,38 @@ export default function AdminDashboardPage() {
                 <li>Usuarios</li>
                 <li>Ubicaciones</li>
                 <li>Precios de estacionamiento</li>
+                <li>Pagos con Stripe</li>
               </ul>
 
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button onClick={() => router.push("/admin/reservations")} className="h-20">
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button
+                  onClick={() => router.push("/admin/reservations")}
+                  className="h-20 flex items-center justify-center"
+                >
+                  <Calendar className="mr-2 h-5 w-5" />
                   Gestionar Reservaciones
                 </Button>
-                <Button onClick={() => router.push("/admin/users")} className="h-20">
+                <Button onClick={() => router.push("/admin/users")} className="h-20 flex items-center justify-center">
+                  <Users className="mr-2 h-5 w-5" />
                   Gestionar Usuarios
                 </Button>
-                <Button onClick={() => router.push("/admin/locations")} className="h-20">
+                <Button
+                  onClick={() => router.push("/admin/locations")}
+                  className="h-20 flex items-center justify-center"
+                >
+                  <MapPin className="mr-2 h-5 w-5" />
                   Gestionar Ubicaciones
                 </Button>
-                <Button onClick={() => router.push("/admin/prices")} className="h-20">
+                <Button onClick={() => router.push("/admin/prices")} className="h-20 flex items-center justify-center">
+                  <span className="mr-2 text-lg font-bold">$</span>
                   Gestionar Precios
+                </Button>
+                <Button
+                  onClick={() => router.push("/admin/payments")}
+                  className="h-20 flex items-center justify-center"
+                >
+                  <CreditCard className="mr-2 h-5 w-5" />
+                  Ver Pagos
                 </Button>
               </div>
             </CardContent>
