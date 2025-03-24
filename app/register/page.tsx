@@ -4,208 +4,203 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Link from "next/link"
-
-// Importar las funciones de validación
-import { isValidEmail, isValidPhone, isValidLicensePlate, isValidName } from "@/lib/validations"
+import { User, Mail, Phone, Car } from "lucide-react"
+import ParticlesBackground from "@/components/particles-background"
+import { isValidPhone, isValidLicensePlate, isValidEmail } from "@/lib/validations"
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
-  const [countryCode, setCountryCode] = useState("+52")
-  const [plate, setPlate] = useState("")
-  const [email, setEmail] = useState("")
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phoneNumber: "",
+    countryCode: "+52",
+    licensePlate: "",
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Actualizar la función handleSubmit para incluir validaciones
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    // Validar que todos los campos requeridos estén completos
-    if (!name || !phone || !plate) {
-      setError("Por favor complete todos los campos requeridos")
-      setLoading(false)
-      return
-    }
-
-    // Validar nombre
-    if (!isValidName(name)) {
-      setError("El nombre debe tener entre 2 y 100 caracteres")
-      setLoading(false)
-      return
-    }
-
-    // Validar formato de email si se proporciona
-    if (email && !isValidEmail(email)) {
-      setError("Por favor ingrese un correo electrónico válido")
-      setLoading(false)
-      return
-    }
-
-    // Validar formato de teléfono
-    const fullPhone = `${countryCode}${phone}`
-    if (!isValidPhone(fullPhone)) {
-      setError("Por favor ingrese un número de teléfono válido")
-      setLoading(false)
-      return
-    }
-
-    // Validar formato de placa
-    if (!isValidLicensePlate(plate)) {
-      setError("Por favor ingrese una placa válida (entre 2 y 10 caracteres)")
-      setLoading(false)
-      return
-    }
-
     try {
+      if (!formData.name.trim()) {
+        throw new Error("Por favor ingrese su nombre completo")
+      }
+
+      if (!isValidEmail(formData.email)) {
+        throw new Error("Por favor ingrese un correo electrónico válido")
+      }
+
+      const fullPhone = `${formData.countryCode}${formData.phoneNumber}`
+      if (!isValidPhone(fullPhone)) {
+        throw new Error("Por favor ingrese un número de teléfono válido")
+      }
+
+      if (!isValidLicensePlate(formData.licensePlate)) {
+        throw new Error("Por favor ingrese una placa válida (entre 2 y 10 caracteres)")
+      }
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name,
-          email,
+          name: formData.name,
+          email: formData.email,
           phone: fullPhone,
-          licensePlate: plate,
+          licensePlate: formData.licensePlate,
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Error de servidor" }))
-        throw new Error(errorData.error || "Error al registrar usuario")
-      }
-
       const data = await response.json()
 
-      // Guardar el token en localStorage
-      if (data.token) {
-        localStorage.setItem("token", data.token)
+      if (!response.ok) {
+        throw new Error(data.error || "Error al registrar usuario")
       }
 
-      // Guardar los datos del usuario en localStorage
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user))
-      }
-
-      // Registration successful, redirect to locations page
-      router.push("/locations")
+      router.push("/user-login?registered=true")
     } catch (err) {
-      setError((err as Error).message)
-      console.error("Registration error:", err)
+      setError((err as Error).message || "Error al registrar usuario")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-700 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <ParticlesBackground color="#3b82f6" />
+
+      <Card className="w-full max-w-md bg-black/90 backdrop-blur-sm shadow-xl text-white">
+        <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">
-            <span className="text-blue-600">SMART</span>
-            <span className="text-gray-800">SPOT</span>
+            <span className="text-blue-400">SMART</span>
+            <span className="text-white">SPOT</span>
           </CardTitle>
-          <p className="text-sm text-muted-foreground">Registro de nuevo usuario</p>
+          <CardDescription className="text-gray-400">Crea tu cuenta</CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">
-                Nombre Completo <span className="text-red-500">*</span>
-              </Label>
+              <div className="flex items-center">
+                <User className="h-4 w-4 mr-2 text-gray-400" />
+                <Label htmlFor="name" className="text-gray-300">
+                  Nombre Completo
+                </Label>
+              </div>
               <Input
-                id="name"
+                name="name"
                 placeholder="Ingresa tu nombre"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={formData.name}
+                onChange={handleChange}
+                className="bg-gray-800 border-gray-700 text-white"
                 required
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="email">
-                Correo Electrónico <span className="text-red-500">*</span>
-              </Label>
+              <div className="flex items-center">
+                <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                <Label htmlFor="email" className="text-gray-300">
+                  Correo Electrónico
+                </Label>
+              </div>
               <Input
-                id="email"
+                name="email"
                 type="email"
                 placeholder="correo@ejemplo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={handleChange}
+                className="bg-gray-800 border-gray-700 text-white"
                 required
               />
-              <p className="text-xs text-muted-foreground">Necesario para recibir confirmaciones de reserva</p>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="phone">
-                Teléfono <span className="text-red-500">*</span>
-              </Label>
+              <div className="flex items-center">
+                <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                <Label htmlFor="phone" className="text-gray-300">
+                  Teléfono
+                </Label>
+              </div>
               <div className="flex">
-                <Select value={countryCode} onValueChange={setCountryCode}>
-                  <SelectTrigger className="w-24">
+                <Select
+                  value={formData.countryCode}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, countryCode: value }))}
+                >
+                  <SelectTrigger className="w-24 bg-gray-800 border-gray-700 text-white rounded-r-none border-r-0">
                     <SelectValue placeholder="+52" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-gray-900 text-white border-gray-700">
                     <SelectItem value="+52">+52</SelectItem>
                     <SelectItem value="+1">+1</SelectItem>
                     <SelectItem value="+44">+44</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input
-                  id="phone"
+                  name="phoneNumber"
                   type="tel"
                   placeholder="Número de teléfono"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="flex-1 ml-2"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  className="flex-1 bg-gray-800 border-gray-700 text-white rounded-l-none"
                   required
                 />
               </div>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="plate">
-                No. de Placa <span className="text-red-500">*</span>
-              </Label>
+              <div className="flex items-center">
+                <Car className="h-4 w-4 mr-2 text-gray-400" />
+                <Label htmlFor="licensePlate" className="text-gray-300">
+                  No. de Placa
+                </Label>
+              </div>
               <Input
-                id="plate"
+                name="licensePlate"
                 placeholder="Ingresa tu placa"
-                value={plate}
-                onChange={(e) => setPlate(e.target.value)}
+                value={formData.licensePlate}
+                onChange={handleChange}
+                className="uppercase bg-gray-800 border-gray-700 text-white"
                 required
               />
             </div>
-            <Button type="submit" className="w-full py-6" size="lg" disabled={loading}>
+
+            {error && (
+              <Alert variant="destructive" className="bg-red-900 border-red-700 text-white">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={loading}>
               {loading ? "Procesando..." : "Continuar"}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
+          <div className="text-sm text-center text-gray-400">
             ¿Ya tienes una cuenta?{" "}
-            <Link href="/user-login" className="text-blue-600 hover:underline">
+            <Link href="/user-login" className="text-blue-400 hover:underline">
               Iniciar sesión
             </Link>
-          </p>
+          </div>
         </CardFooter>
       </Card>
     </div>
   )
 }
-

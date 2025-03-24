@@ -3,47 +3,38 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Link from "next/link"
-
-// Importar las funciones de validación
-import { isValidPhone, isValidLicensePlate } from "@/lib/validations"
+import { Phone, Car, ShieldCheck } from "lucide-react"
+import ParticlesBackground from "@/components/particles-background"
+import Cookies from "js-cookie"
 
 export default function UserLoginPage() {
   const router = useRouter()
-  const [phoneNumber, setPhoneNumber] = useState("")
-  const [countryCode, setCountryCode] = useState("+52")
+  const searchParams = useSearchParams()
+  const redirectPath = searchParams.get("redirect") || "/locations"
+
+  const [phone, setPhone] = useState("")
   const [licensePlate, setLicensePlate] = useState("")
+  const [countryCode, setCountryCode] = useState("+52")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Actualizar la función handleSubmit para incluir validaciones
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
     try {
-      // Combinar código de país y número de teléfono
-      const fullPhone = `${countryCode}${phoneNumber}`
-
-      // Validar formato de teléfono
-      if (!isValidPhone(fullPhone)) {
-        throw new Error("Por favor ingrese un número de teléfono válido")
-      }
-
-      // Validar formato de placa
-      if (!isValidLicensePlate(licensePlate)) {
-        throw new Error("Por favor ingrese una placa válida (entre 2 y 10 caracteres)")
-      }
-
-      console.log("Submitting login with:", { phone: fullPhone, licensePlate })
+      // Limpiar cookies existentes para evitar problemas
+      Cookies.remove("token")
+      localStorage.removeItem("token")
 
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -51,50 +42,31 @@ export default function UserLoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phone: fullPhone,
+          phone: `${countryCode}${phone}`,
           licensePlate,
         }),
       })
 
-      console.log("Login response status:", response.status)
+      const data = await response.json()
 
-      // Si la respuesta no es exitosa, mostrar el error
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Error de servidor" }))
-
-        // Si el error es 404 (usuario no encontrado), mostrar un mensaje específico
-        if (response.status === 404) {
-          throw new Error(errorData.error || "Usuario no encontrado. Por favor, regístrese primero.")
-        }
-
-        throw new Error(errorData.error || "Error al iniciar sesión")
+        throw new Error(data.error || "Error al iniciar sesión")
       }
 
-      // Intentar parsear la respuesta como JSON
-      const data = await response.json().catch((err) => {
-        console.error("Error parsing JSON response:", err)
-        throw new Error("Error al procesar la respuesta del servidor")
-      })
-
-      console.log("Login response data:", data)
-
-      // Verificar que la respuesta tenga el formato esperado
-      if (!data.success || !data.token) {
-        throw new Error("Respuesta inválida del servidor")
-      }
-
-      // Guardar el token en localStorage
+      // Guardar token en localStorage
       localStorage.setItem("token", data.token)
 
-      // Guardar los datos del usuario en localStorage
+      // Guardar token en cookie para el middleware
+      Cookies.set("token", data.token, { path: "/", expires: 7 }) // Expira en 7 días
+
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user))
       }
 
-      // Redirigir a la página de ubicaciones
-      router.push("/locations")
+      // Redirigir a la página principal o a la ruta especificada
+      router.push(redirectPath)
     } catch (err) {
-      console.error("Login error:", err)
+      console.error("Error logging in:", err)
       setError((err as Error).message)
     } finally {
       setLoading(false)
@@ -102,74 +74,87 @@ export default function UserLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-700 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <ParticlesBackground color="#3b82f6" />
+
+      <Card className="w-full max-w-md bg-white/95 backdrop-blur-sm shadow-xl">
+        <div className="text-center p-6 pb-2">
+          <h1 className="text-2xl font-bold">
             <span className="text-blue-600">SMART</span>
-            <span className="text-gray-800">SPOT</span>
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">Inicia sesión como usuario</p>
-        </CardHeader>
+            <span>SPOT</span>
+          </h1>
+          <p className="text-sm text-gray-600 mt-1">Inicia sesión como usuario</p>
+        </div>
+
         <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">Teléfono</Label>
+              <div className="flex items-center">
+                <Phone className="h-4 w-4 mr-2 text-gray-500" />
+                <Label htmlFor="phone">Teléfono</Label>
+              </div>
               <div className="flex">
                 <Select value={countryCode} onValueChange={setCountryCode}>
-                  <SelectTrigger className="w-24">
+                  <SelectTrigger className="px-2 py-2 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-sm w-24">
                     <SelectValue placeholder="+52" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="+52">+52</SelectItem>
                     <SelectItem value="+1">+1</SelectItem>
-                    <SelectItem value="+44">+44</SelectItem>
+                    <SelectItem value="+34">+34</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input
                   id="phone"
                   type="tel"
                   placeholder="Número de teléfono"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="flex-1 ml-2"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="rounded-l-none"
                   required
                 />
               </div>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="licensePlate">Placa</Label>
+              <div className="flex items-center">
+                <Car className="h-4 w-4 mr-2 text-gray-500" />
+                <Label htmlFor="licensePlate">Placa</Label>
+              </div>
               <Input
                 id="licensePlate"
-                placeholder="ABC-123"
+                placeholder="Número de placa"
                 value={licensePlate}
-                onChange={(e) => setLicensePlate(e.target.value)}
+                onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+                className="uppercase"
                 required
               />
             </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
+
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
               {loading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
-          <p className="text-sm text-center text-muted-foreground">
+          <div className="text-sm text-center text-gray-600">
             ¿No tienes una cuenta?{" "}
             <Link href="/register" className="text-blue-600 hover:underline">
               Regístrate aquí
             </Link>
-          </p>
-          <p className="text-sm text-center text-muted-foreground">
-            <Link href="/admin/login" className="text-blue-600 hover:underline">
+          </div>
+          <div className="text-xs text-center text-gray-500">
+            <Link href="/admin/login" className="hover:underline flex items-center justify-center gap-1">
+              <ShieldCheck className="h-3 w-3" />
               Iniciar sesión como administrador
             </Link>
-          </p>
+          </div>
         </CardFooter>
       </Card>
     </div>

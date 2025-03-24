@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import stripe from "@/lib/stripe"
 import crypto from "crypto"
 import { sendReceiptEmail } from "@/lib/email-service"
+import { generateQRCode } from "@/lib/qrcode"
 
 // Desactivar el body parser para webhooks de Stripe
 export const config = {
@@ -27,7 +28,11 @@ export async function POST(request: NextRequest) {
     const buf = await buffer(request.body as ReadableStream)
     const rawBody = buf.toString("utf8")
 
+    // Guardar el cuerpo del webhook para depuración
+    console.log("Cuerpo del webhook:", rawBody.substring(0, 500) + "...")
+
     const signature = request.headers.get("stripe-signature") || ""
+    console.log("Firma del webhook:", signature)
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
       console.error("STRIPE_WEBHOOK_SECRET no está configurado")
@@ -67,6 +72,7 @@ export async function POST(request: NextRequest) {
 
 async function handlePaymentIntentSucceeded(paymentIntent: any) {
   console.log(`Procesando pago exitoso para PaymentIntent: ${paymentIntent.id}`)
+  console.log("Datos del PaymentIntent:", JSON.stringify(paymentIntent, null, 2))
 
   const { metadata } = paymentIntent
   const { parkingSpotId, startTime, endTime, userId } = metadata || {}
@@ -78,22 +84,24 @@ async function handlePaymentIntentSucceeded(paymentIntent: any) {
 
   // Verificar si ya existe una reservación para este PaymentIntent
   const existingReservation = await prisma.reservation.findFirst({
-    where: { stripePaymentIntentId: paymentIntent.id },
+    where: {
+      OR: [{ stripePaymentIntentId: paymentIntent.id }, { paymentId: paymentIntent.id }],
+    },
   })
 
   if (existingReservation) {
     console.log(`Ya existe una reservación para el PaymentIntent ${paymentIntent.id}`)
 
     // Actualizar el estado si es necesario
-    if (existingReservation.status !== "confirmed") {
+    if (existingReservation.status !== "confirmed" && existingReservation.status !== "CONFIRMED") {
       await prisma.reservation.update({
         where: { id: existingReservation.id },
         data: {
-          status: "confirmed",
+          status: "CONFIRMED",
           stripePaymentStatus: paymentIntent.status,
         },
       })
-      console.log(`Reservación ${existingReservation.id} actualizada a confirmed`)
+      console.log(`Reservación ${existingReservation.id} actualizada a CONFIRMED`)
     }
 
     return
@@ -116,15 +124,11 @@ async function handlePaymentIntentSucceeded(paymentIntent: any) {
         stripePaymentIntentId: paymentIntent.id,
         stripePaymentStatus: paymentIntent.status,
         qrCode,
-        status: "confirmed",
+        status: "CONFIRMED",
       },
       include: {
+        parkingSpot: true,
         user: true,
-        parkingSpot: {
-          include: {
-            location: true,
-          },
-        },
       },
     })
 
@@ -138,16 +142,44 @@ async function handlePaymentIntentSucceeded(paymentIntent: any) {
 
     console.log(`Lugar de estacionamiento ${parkingSpotId} marcado como no disponible`)
 
+    // Generar QR con la información de la reservación
+    const qrData = {
+      id: reservation.id,
+      userId: reservation.userId,
+      nombre: reservation.user?.name || "Usuario",
+      fechaReservacion: new Date().toISOString(),
+      horaInicio: reservation.startTime.toISOString(),
+      horaFin: reservation.endTime.toISOString(),
+      lugarEstacionamiento: `Lugar ${reservation.parkingSpot.spotNumber}`,
+      ubicacion: "Estacionamiento", // Fallback si no hay location
+      estado: "PAGADO",
+      precio: reservation.price,
+    }
+
+    // Generar el QR como una cadena de texto JSON
+    const qrCodeContent = JSON.stringify(qrData)
+
+    // Generar el QR como una imagen
+    const qrCodeDataUrl = await generateQRCode(qrCodeContent)
+
+    // Actualizar la reservación con el QR generado
+    await prisma.reservation.update({
+      where: { id: reservation.id },
+      data: {
+        qrCode: qrCodeDataUrl,
+      },
+    })
+
     // Enviar correo de confirmación si hay un correo disponible
     if (reservation.user.email) {
       try {
         await sendReceiptEmail(reservation.user.email, reservation.id, {
           spotNumber: reservation.parkingSpot.spotNumber,
-          locationName: reservation.parkingSpot.location.name,
+          locationName: "Estacionamiento", // Fallback si no hay location
           startTime: reservation.startTime,
           endTime: reservation.endTime,
           price: reservation.price,
-          qrCode: reservation.qrCode,
+          qrCode: qrCodeDataUrl,
         })
         console.log(`Correo de confirmación enviado a ${reservation.user.email}`)
       } catch (emailError) {

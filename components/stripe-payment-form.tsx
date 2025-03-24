@@ -6,6 +6,7 @@ import { useState } from "react"
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { CreditCard } from "lucide-react"
 
 interface StripePaymentFormProps {
   clientSecret: string
@@ -63,7 +64,11 @@ export default function StripePaymentForm({ clientSecret, amount, onSuccess, onE
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="p-4 border rounded-md bg-white">
+      <div className="p-4 border rounded-md bg-white shadow-sm">
+        <div className="mb-2 flex items-center">
+          <CreditCard className="h-4 w-4 mr-2 text-gray-500" />
+          <span className="text-sm font-medium text-gray-700">Información de pago</span>
+        </div>
         <CardElement
           options={{
             style: {
@@ -90,8 +95,8 @@ export default function StripePaymentForm({ clientSecret, amount, onSuccess, onE
       )}
 
       <div className="flex justify-between items-center">
-        <div className="text-lg font-bold">Total: ${amount.toFixed(2)}</div>
-        <Button type="submit" disabled={!stripe || processing}>
+        <div className="text-lg font-bold text-blue-700">Total: ${amount.toFixed(2)}</div>
+        <Button type="submit" disabled={!stripe || processing} className="bg-blue-600 hover:bg-blue-700">
           {processing ? "Procesando..." : "Pagar"}
         </Button>
       </div>

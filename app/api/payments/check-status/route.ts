@@ -21,9 +21,11 @@ export async function GET(request: NextRequest) {
 
     console.log(`Verificando estado de pago para PaymentIntent: ${paymentIntentId}`)
 
-    // Buscar la reservación asociada al PaymentIntent
+    // Buscar la reservación asociada al PaymentIntent (verificar ambos campos)
     const reservation = await prisma.reservation.findFirst({
-      where: { stripePaymentIntentId: paymentIntentId },
+      where: {
+        OR: [{ stripePaymentIntentId: paymentIntentId }, { paymentId: paymentIntentId }],
+      },
       include: {
         parkingSpot: {
           include: {
@@ -41,46 +43,43 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // Si se encuentra la reservación, devolverla
+    if (reservation) {
+      console.log(`Reservación encontrada para PaymentIntent: ${paymentIntentId}`)
+      return NextResponse.json({ reservation })
+    }
+
     // Si no se encuentra la reservación, verificar el estado del pago en Stripe
-    if (!reservation) {
-      console.log(`No se encontró reservación para PaymentIntent: ${paymentIntentId}, verificando en Stripe`)
+    console.log(`No se encontró reservación para PaymentIntent: ${paymentIntentId}, verificando en Stripe`)
 
-      try {
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    try {
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
 
-        console.log(`Estado del PaymentIntent en Stripe: ${paymentIntent.status}`)
+      console.log(`Estado del PaymentIntent en Stripe: ${paymentIntent.status}`)
 
-        // Si el pago fue exitoso pero no hay reservación, devolver información para crear una
-        if (paymentIntent.status === "succeeded") {
-          return NextResponse.json({
-            paymentStatus: paymentIntent.status,
-            paymentIntent: {
-              id: paymentIntent.id,
-              amount: paymentIntent.amount / 100,
-              status: paymentIntent.status,
-              metadata: paymentIntent.metadata,
-            },
-            message: "Pago exitoso pero reservación no encontrada",
-          })
-        }
-
+      // Si el pago fue exitoso pero no hay reservación, devolver información para crear una
+      if (paymentIntent.status === "succeeded") {
         return NextResponse.json({
-          reservation: null,
           paymentStatus: paymentIntent.status,
-          message: "Reservación no encontrada, pago en proceso",
+          paymentIntent: {
+            id: paymentIntent.id,
+            amount: paymentIntent.amount / 100,
+            status: paymentIntent.status,
+            metadata: paymentIntent.metadata,
+          },
+          message: "Pago exitoso pero reservación no encontrada",
         })
-      } catch (stripeError) {
-        console.error("Error al verificar PaymentIntent en Stripe:", stripeError)
-        return NextResponse.json({ error: "Error al verificar el pago en Stripe" }, { status: 500 })
       }
-    }
 
-    // Verificar que la reservación pertenece al usuario
-    if (reservation.userId !== user.id) {
-      return NextResponse.json({ error: "No autorizado para esta reservación" }, { status: 403 })
+      return NextResponse.json({
+        reservation: null,
+        paymentStatus: paymentIntent.status,
+        message: "Reservación no encontrada, pago en proceso",
+      })
+    } catch (stripeError) {
+      console.error("Error al verificar PaymentIntent en Stripe:", stripeError)
+      return NextResponse.json({ error: "Error al verificar el pago en Stripe" }, { status: 500 })
     }
-
-    return NextResponse.json({ reservation })
   } catch (error) {
     console.error("Error checking payment status:", error)
     return NextResponse.json(

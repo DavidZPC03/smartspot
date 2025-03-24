@@ -1,128 +1,130 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ArrowLeft } from "lucide-react"
+import Link from "next/link"
+import { MapPin, Car, Clock } from "lucide-react"
+import ParticlesBackground from "@/components/particles-background"
 
 interface Location {
   id: string
   name: string
   address: string
+  totalSpots: number
+  availableSpots: number
+  pricePerHour: number
 }
 
 export default function LocationsPage() {
   const router = useRouter()
   const [locations, setLocations] = useState<Location[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchLocations = async () => {
+    async function fetchLocations() {
       try {
-        setLoading(true)
-        setError(null)
-
-        console.log("Fetching locations with query:", searchQuery)
-        const response = await fetch(`/api/locations?query=${encodeURIComponent(searchQuery)}`)
-
-        console.log("Locations response status:", response.status)
-
+        const response = await fetch("/api/locations")
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Error de servidor" }))
-          throw new Error(errorData.error || "Error al cargar ubicaciones")
+          throw new Error("Error al cargar ubicaciones")
         }
-
         const data = await response.json()
-        console.log("Locations data:", data)
 
-        if (!data.success || !data.locations) {
-          throw new Error("Formato de respuesta inválido")
+        // Asegúrate de que la respuesta tenga la estructura correcta
+        if (data && data.locations && Array.isArray(data.locations)) {
+          setLocations(data.locations)
+        } else {
+          setLocations([])
         }
-
-        setLocations(data.locations)
       } catch (err) {
-        console.error("Error fetching locations:", err)
-        setError((err as Error).message)
+        setError("No se pudieron cargar las ubicaciones. Intente de nuevo más tarde.")
+        console.error(err)
       } finally {
         setLoading(false)
       }
     }
 
     fetchLocations()
-  }, [searchQuery])
+  }, [])
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    // La búsqueda se activa automáticamente por el efecto
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
   }
 
-  const handleSelectLocation = (locationId: string) => {
-    router.push(`/parking-spots/${locationId}`)
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg max-w-md">
+          <p>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 bg-red-100 hover:bg-red-200 text-red-700 font-semibold py-2 px-4 rounded-md text-sm"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-500 to-blue-700 p-4">
-      <div className="container mx-auto max-w-md">
-        <div className="mb-4">
-          <Button variant="outline" onClick={() => router.push("/")} className="bg-white hover:bg-gray-100">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Inicio
-          </Button>
+    <div className="container mx-auto px-4 py-8 relative min-h-screen">
+      <ParticlesBackground color="#3b82f6" />
+
+      <div className="z-10 relative">
+        <h1 className="text-3xl font-bold text-blue-600 mb-8 text-center">Ubicaciones Disponibles</h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {locations && locations.length > 0 ? (
+            locations.map((location) => (
+              <Link href={`/parking-spots/${location.id}`} key={location.id} className="no-underline">
+                <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all p-6 border border-blue-100 hover:border-blue-300">
+                  <h2 className="text-xl font-semibold text-blue-700 mb-2">{location.name}</h2>
+
+                  <div className="flex items-start gap-2 mb-3 text-gray-600">
+                    <MapPin className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <p>{location.address}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="flex items-center gap-2">
+                      <Car className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">Disponibles</p>
+                        <p className="font-medium text-gray-800">
+                          {location.availableSpots} / {location.totalSpots}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <p className="text-sm text-gray-500">Precio/Hora</p>
+                        <p className="font-medium text-gray-800">${location.pricePerHour.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors">
+                      Ver Espacios
+                    </button>
+                  </div>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="col-span-3 text-center py-12">
+              <p className="text-gray-600">No hay ubicaciones disponibles en este momento.</p>
+            </div>
+          )}
         </div>
-
-        <h1 className="mb-6 text-2xl font-bold text-white text-center">Ubicaciones</h1>
-
-        <form onSubmit={handleSearch} className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-            <Input
-              type="search"
-              placeholder="Buscar ubicaciones..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </form>
-
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {loading ? (
-          <p className="text-center text-white">Cargando ubicaciones...</p>
-        ) : locations.length === 0 ? (
-          <p className="text-center text-white">No se encontraron ubicaciones</p>
-        ) : (
-          <div className="space-y-4">
-            {locations.map((location) => (
-              <Card key={location.id} className="overflow-hidden">
-                <CardHeader className="p-4">
-                  <CardTitle className="text-lg">{location.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <p className="text-sm text-muted-foreground mb-4">{location.address}</p>
-                  <Button onClick={() => handleSelectLocation(location.id)} className="w-full">
-                    Seleccionar
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
 }
-

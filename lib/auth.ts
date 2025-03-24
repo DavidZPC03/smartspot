@@ -7,16 +7,22 @@ const AUTH_SECRET = process.env.AUTH_SECRET || "your-fallback-secret-key-for-dev
 
 export async function getUserFromRequest(request: NextRequest) {
   try {
-    // Obtener el token del encabezado de autorización
+    // Intentar obtener el token de diferentes fuentes
+    let token: string | undefined
+
+    // 1. Primero intentar desde el encabezado de autorización
     const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.log("No se encontró token de autorización en la solicitud")
-      return null
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1]
     }
 
-    const token = authHeader.split(" ")[1]
+    // 2. Si no hay token en el encabezado, intentar desde las cookies
     if (!token) {
-      console.log("Token vacío en la solicitud")
+      token = request.cookies.get("token")?.value
+    }
+
+    if (!token) {
+      console.log("No se encontró token de autorización")
       return null
     }
 

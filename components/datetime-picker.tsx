@@ -41,21 +41,24 @@ export function DateTimePicker({ date, setDate, label, disabled = false, showTim
 
   return (
     <div className="flex flex-col space-y-2 w-full">
-      {label && <span className="text-sm font-medium">{label}</span>}
+      {label && <span className="text-sm font-medium text-gray-700">{label}</span>}
       <div className="flex flex-col space-y-2">
         {!showTimeOnly && (
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
+                className={cn(
+                  "w-full justify-start text-left font-normal soft-button soft-button-outline",
+                  !selectedDate && "text-gray-500",
+                )}
                 disabled={disabled}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Seleccionar fecha</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
+            <PopoverContent className="w-auto p-0 soft-card">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -67,13 +70,13 @@ export function DateTimePicker({ date, setDate, label, disabled = false, showTim
           </Popover>
         )}
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-1 border rounded-md p-2 w-full">
-            <Clock className="h-4 w-4 text-muted-foreground ml-1" />
+          <div className="flex items-center space-x-1 border rounded-md p-2 w-full bg-white border-gray-200 soft-shadow-inner">
+            <Clock className="h-4 w-4 text-blue-500 ml-1" />
             <Select value={selectedHour} onValueChange={setSelectedHour} disabled={disabled}>
-              <SelectTrigger className="w-[60px] border-0 p-0 focus:ring-0">
+              <SelectTrigger className="w-[60px] border-0 p-0 focus:ring-0 text-gray-700">
                 <SelectValue placeholder="Hora" />
               </SelectTrigger>
-              <SelectContent position="popper" className="h-[200px]">
+              <SelectContent position="popper" className="h-[200px] soft-card">
                 {hours.map((hour) => (
                   <SelectItem key={hour} value={hour}>
                     {hour}
@@ -81,12 +84,12 @@ export function DateTimePicker({ date, setDate, label, disabled = false, showTim
                 ))}
               </SelectContent>
             </Select>
-            <span>:</span>
+            <span className="text-gray-700">:</span>
             <Select value={selectedMinute} onValueChange={setSelectedMinute} disabled={disabled}>
-              <SelectTrigger className="w-[60px] border-0 p-0 focus:ring-0">
+              <SelectTrigger className="w-[60px] border-0 p-0 focus:ring-0 text-gray-700">
                 <SelectValue placeholder="Min" />
               </SelectTrigger>
-              <SelectContent position="popper">
+              <SelectContent position="popper" className="soft-card">
                 {minutes.map((minute) => (
                   <SelectItem key={minute} value={minute}>
                     {minute}

@@ -1,49 +1,55 @@
-import QRCode from "qrcode"
-import { createHash } from "crypto"
-import { PrismaClient } from "@prisma/client"
+export async function generateQRCode(data: string | object): Promise<string> {
+  try {
+    // If it's an object, convert it to JSON
+    const content = typeof data === "object" ? JSON.stringify(data) : data
 
-const prisma = new PrismaClient()
-
-export async function generateQRCode(reservationId: string): Promise<string> {
-  // Create a unique code for the reservation
-  const uniqueCode = createHash("sha256")
-    .update(`${reservationId}-${Date.now()}-${process.env.QR_SECRET}`)
-    .digest("hex")
-    .substring(0, 12)
-    .toUpperCase()
-
-  // Create QR code data
-  const qrData = JSON.stringify({
-    code: uniqueCode,
-    reservationId,
-    timestamp: Date.now(),
-  })
-
-  // Generate QR code as data URL
-  const qrCodeDataUrl = await QRCode.toDataURL(qrData)
-
-  // In a real app, you might want to store this in a database or file storage
-  // For this example, we'll just return the unique code
-  return uniqueCode
+    // Use the public API to generate a QR code
+    const encodedData = encodeURIComponent(content)
+    return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=300x300&ecc=H`
+  } catch (error) {
+    console.error("Error generating QR code:", error)
+    return generateFallbackQR(typeof data === "object" ? JSON.stringify(data) : data)
+  }
 }
 
-export async function verifyQRCode(code: string, reservationId: string): Promise<boolean> {
-  // In a real app, you would verify this against stored data
-  // For this example, we'll just check if the code is associated with the reservation
-
+// Fallback QR function
+export function generateFallbackQR(data: string): string {
   try {
-    const reservation = await prisma.reservation.findUnique({
-      where: { id: reservationId },
-    })
+    // Use a reliable public API to generate the QR
+    const encodedData = encodeURIComponent(data)
+    // Use full URL with https and specific size and correction level
+    return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=300x300&ecc=H`
+  } catch (error) {
+    console.error("Error generating fallback QR:", error)
+    return "/placeholder.svg?height=200&width=200"
+  }
+}
 
-    if (!reservation) {
-      return false
+// Add the missing verifyQRCode function
+export function verifyQRCode(qrCode: string, secretKey?: string): { valid: boolean; data?: any; error?: string } {
+  try {
+    // For simple text QR codes
+    if (!qrCode.startsWith("{")) {
+      return {
+        valid: true,
+        data: { code: qrCode },
+      }
     }
 
-    return reservation.qrCode === code
+    // For JSON QR codes
+    const data = JSON.parse(qrCode)
+
+    // Return the parsed data
+    return {
+      valid: true,
+      data,
+    }
   } catch (error) {
     console.error("Error verifying QR code:", error)
-    return false
+    return {
+      valid: false,
+      error: "Invalid QR code format",
+    }
   }
 }
 

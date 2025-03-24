@@ -1,18 +1,12 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getCurrentUser } from "@/lib/auth"
 import { generateQRCode } from "@/lib/qrcode"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-
     const reservationId = params.id
 
-    // Obtener la reservación
+    // Buscar la reservación
     const reservation = await prisma.reservation.findUnique({
       where: { id: reservationId },
       include: {
@@ -29,25 +23,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "Reservación no encontrada" }, { status: 404 })
     }
 
-    // Verificar que la reservación pertenece al usuario
-    if (reservation.userId !== user.id) {
-      return NextResponse.json({ error: "No autorizado para esta reservación" }, { status: 403 })
-    }
-
-    // Marcar la reservación como pagada y pendiente de confirmación
-    await prisma.reservation.update({
-      where: { id: reservationId },
-      data: {
-        status: "PENDING", // Pendiente de confirmación por escaneo
-        paymentStatus: "PAID",
-      },
-    })
-
     // Generar QR con la información de la reservación
     const qrData = {
       id: reservation.id,
-      userId: user.id,
-      nombre: user.name || "Usuario",
+      userId: reservation.userId,
+      nombre: reservation.user?.name || "Usuario",
       fechaReservacion: new Date().toISOString(),
       horaInicio: reservation.startTime.toISOString(),
       horaFin: reservation.endTime.toISOString(),
@@ -76,8 +56,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       },
     })
   } catch (error) {
-    console.error("Error processing payment:", error)
-    return NextResponse.json({ error: "Error al procesar el pago", details: (error as Error).message }, { status: 500 })
+    console.error("Error generating QR:", error)
+    return NextResponse.json({ error: "Error al generar el QR", details: (error as Error).message }, { status: 500 })
   }
 }
 

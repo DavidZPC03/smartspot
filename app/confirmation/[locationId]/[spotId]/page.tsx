@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Download, Check, ArrowLeft, Home } from "lucide-react"
+import { Check, ArrowLeft, Home } from "lucide-react"
 import QRCode from "@/components/qr-code"
 import { use } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import ParticlesBackground from "@/components/particles-background"
 
 interface Location {
   id: string
@@ -307,11 +308,6 @@ export default function ConfirmationPage({
     return JSON.stringify(qrData)
   }
 
-  const handleDownload = () => {
-    // En una aplicación real, esto generaría y descargaría un PDF o imagen
-    alert("Descargando QR...")
-  }
-
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-700 p-4">
@@ -366,6 +362,7 @@ export default function ConfirmationPage({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-blue-700 p-4">
+      <ParticlesBackground />
       <div className="w-full max-w-md mb-4">
         <Button variant="outline" onClick={() => router.push("/locations")} className="bg-white hover:bg-gray-100">
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -399,19 +396,22 @@ export default function ConfirmationPage({
                     <p>Generando código QR...</p>
                   </div>
                 ) : (
-                  <QRCode value={qrData || reservation.qrCode || reservation.id} size={200} />
+                  <QRCode
+                    value={qrData || reservation.qrCode || reservation.id}
+                    size={200}
+                    showDownloadButton={true}
+                    downloadFileName={`smartspot-qr-${reservation.id.substring(0, 8)}`}
+                  />
                 )}
               </div>
-              <Button
-                onClick={handleDownload}
-                variant="outline"
-                className="w-full flex items-center justify-center gap-2"
-                disabled={reservation.qrCode === "Procesando..."}
-              >
-                <Download className="h-4 w-4" />
-                Descargar
-              </Button>
             </div>
+
+            <Alert className="bg-green-50 border-green-200">
+              <Check className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 text-sm">
+                Tu reservación está confirmada. Muestra este código QR al personal del estacionamiento.
+              </AlertDescription>
+            </Alert>
 
             <div className="w-full mt-6 space-y-2">
               <div className="flex justify-between text-sm">

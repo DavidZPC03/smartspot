@@ -68,11 +68,31 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Añadir un contador de reservaciones ficticio para mantener la compatibilidad con el frontend
-    const usersWithMockCounts = users.map((user) => ({
+    // Get reservation counts for each user
+    const userIds = users.map((user) => user.id)
+    const reservationCounts = await prisma.reservation.groupBy({
+      by: ["userId"],
+      where: {
+        userId: {
+          in: userIds,
+        },
+      },
+      _count: {
+        id: true,
+      },
+    })
+
+    // Create a map of userId to reservation count
+    const countMap = new Map()
+    reservationCounts.forEach((item) => {
+      countMap.set(item.userId, item._count.id)
+    })
+
+    // Add the actual reservation counts to the users
+    const usersWithCounts = users.map((user) => ({
       ...user,
       _count: {
-        reservations: 0, // Valor ficticio ya que no existe la relación
+        reservations: countMap.get(user.id) || 0,
       },
     }))
 
@@ -81,7 +101,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      users: usersWithMockCounts,
+      users: usersWithCounts,
       pagination: {
         total: totalUsers,
         page,

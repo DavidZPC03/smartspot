@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     // Generar un código QR único (usando crypto en lugar de uuid)
     const qrCode = crypto.randomBytes(6).toString("hex").toUpperCase()
 
-    // Crear la reservación en la base de datos
+    // Crear la reservación en la base de datos con estado CONFIRMED
     const reservation = await prisma.reservation.create({
       data: {
         userId: user.id,
@@ -118,23 +118,19 @@ export async function POST(request: NextRequest) {
         paymentMethod: body.paymentMethod || "card",
         paymentId: body.paymentId || null,
         qrCode: qrCode,
-        status: "confirmed",
+        status: "CONFIRMED", // Confirmada automáticamente
       },
     })
 
     console.log("Reservation created successfully:", reservation)
 
-    // Marcar inmediatamente el lugar como no disponible
+    // Marcar el lugar como no disponible
     await prisma.parkingSpot.update({
-      where: {
-        id: body.parkingSpotId,
-      },
-      data: {
-        isAvailable: false,
-      },
+      where: { id: body.parkingSpotId },
+      data: { isAvailable: false },
     })
 
-    console.log("Parking spot marked as unavailable:", body.parkingSpotId)
+    console.log("Parking spot marked as unavailable")
 
     // Enviar correo de confirmación si hay un correo disponible
     if (user.email) {
@@ -153,12 +149,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Devolver la reservación creada
+    // Generar QR con la API pública
+    const qrData = {
+      id: reservation.id,
+      userId: user.id,
+      nombre: user.name || "Usuario",
+      fechaReservacion: new Date().toISOString(),
+      horaInicio: reservation.startTime.toISOString(),
+      horaFin: reservation.endTime.toISOString(),
+      lugarEstacionamiento: `Lugar ${parkingSpot.spotNumber}`,
+      ubicacion: parkingSpot.location.name,
+      estado: "CONFIRMADO",
+      precio: reservation.price,
+    }
+
+    // Generar el QR como una cadena de texto JSON
+    const qrCodeContent = JSON.stringify(qrData)
+
+    // Usar la API pública para generar el QR
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrCodeContent)}&size=300x300&ecc=H`
+
+    // Devolver la reservación creada con el QR
     return NextResponse.json({
       success: true,
       reservation: {
         id: reservation.id,
-        qrCode: reservation.qrCode,
+        qrCode: qrCodeUrl,
         startTime: reservation.startTime,
         endTime: reservation.endTime,
         price: reservation.price,
