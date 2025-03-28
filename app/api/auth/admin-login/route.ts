@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       { expiresIn: "1d" },
     )
 
-    // Devolver el token y los datos del administrador
-    return NextResponse.json({
+    // Crear la respuesta
+    const response = NextResponse.json({
       success: true,
       token,
       admin: {
@@ -47,6 +47,20 @@ export async function POST(request: NextRequest) {
         role: "admin",
       },
     })
+
+    // Establecer la cookie directamente en la respuesta
+    response.cookies.set({
+      name: "adminToken",
+      value: token,
+      path: "/",
+      maxAge: 60 * 60 * 24, // 1 día en segundos
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    })
+
+    console.log("Admin login successful, token generated and cookie set")
+    return response
   } catch (error) {
     console.error("Admin login error:", error)
     return NextResponse.json({ error: "Error al iniciar sesión" }, { status: 500 })

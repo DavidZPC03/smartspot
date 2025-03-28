@@ -1,61 +1,70 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
+// Rutas que requieren autenticación de usuario
+const userProtectedRoutes = ["/locations", "/parking-spots", "/payment", "/confirmation", "/reservations", "/profile"]
+
+// Rutas que requieren autenticación de administrador
+const adminProtectedRoutes = [
+  "/admin/dashboard",
+  "/admin/reservations",
+  "/admin/users",
+  "/admin/locations",
+  "/admin/parking-spots",
+  "/admin/payments",
+  "/admin/settings",
+  "/admin/verify-qr",
+  "/admin/qr-scanner",
+  "/admin/prices",
+]
+
 export function middleware(request: NextRequest) {
-  // Obtener la ruta actual
-  const path = request.nextUrl.pathname
+  const { pathname } = request.nextUrl
 
-  // Rutas públicas que no requieren autenticación
-  const publicPaths = [
-    "/",
-    "/user-login",
-    "/register",
-    "/admin/login",
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/admin-login",
-  ]
+  // Verificar si es una ruta protegida de usuario
+  const isUserProtectedRoute = userProtectedRoutes.some((route) => pathname.startsWith(route))
 
-  // Verificar si la ruta actual es pública
-  const isPublicPath = publicPaths.some((pp) => path === pp || path.startsWith("/api/"))
+  // Verificar si es una ruta protegida de administrador
+  const isAdminProtectedRoute = adminProtectedRoutes.some((route) => pathname.startsWith(route))
 
-  // Si es una ruta pública, permitir el acceso sin verificar token
-  if (isPublicPath) {
-    return NextResponse.next()
+  // Obtener tokens de las cookies
+  const userToken = request.cookies.get("token")?.value
+  const adminToken = request.cookies.get("adminToken")?.value
+
+  console.log(`Middleware checking path: ${pathname}`)
+  console.log(`User token exists: ${!!userToken}`)
+  console.log(`Admin token exists: ${!!adminToken}`)
+
+  // Redirigir si intenta acceder a una ruta protegida de usuario sin token
+  if (isUserProtectedRoute && !userToken) {
+    console.log(`Redirecting to user login from ${pathname}`)
+    const url = new URL("/user-login", request.url)
+    url.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(url)
   }
 
-  // Rutas de administrador
-  const isAdminPath = path.startsWith("/admin")
-
-  // Verificar acceso a rutas de administrador
-  if (isAdminPath) {
-    // Obtener el token de administrador de las cookies
-    const adminToken = request.cookies.get("adminToken")?.value
-
-    // Si no hay token de administrador y no estamos en la página de login, redirigir al login
-    if (!adminToken && path !== "/admin/login") {
-      return NextResponse.redirect(new URL("/admin/login", request.url))
-    }
-
-    return NextResponse.next()
-  }
-
-  // Para otras rutas que requieren autenticación de usuario
-  const token = request.cookies.get("token")?.value
-
-  // Si no hay token de usuario, redirigir al login de usuario
-  if (!token) {
-    return NextResponse.redirect(new URL("/user-login", request.url))
+  // Redirigir si intenta acceder a una ruta protegida de administrador sin token
+  if (isAdminProtectedRoute && !adminToken) {
+    console.log(`Redirecting to admin login from ${pathname}`)
+    const url = new URL("/admin/login", request.url)
+    url.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(url)
   }
 
   return NextResponse.next()
 }
 
-// Configurar las rutas que deben ser procesadas por el middleware
 export const config = {
   matcher: [
-    // Excluir archivos estáticos y API routes
-    "/((?!_next/static|_next/image|favicon.ico|api).*)",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icon-\\d+x\\d+\\.png).*)",
   ],
 }
 

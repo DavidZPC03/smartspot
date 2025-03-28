@@ -74,23 +74,29 @@ export default function AdminLoginPage() {
       console.log("Admin token stored in localStorage:", data.token.substring(0, 10) + "...")
 
       // Guardar el token en una cookie para que el middleware pueda acceder a él
-      Cookies.set("adminToken", data.token, { path: "/", expires: 1 }) // Expira en 1 día
+      // Configurar la cookie con opciones más robustas
+      Cookies.set("adminToken", data.token, {
+        path: "/",
+        expires: 1, // Expira en 1 día
+        sameSite: "strict",
+        secure: window.location.protocol === "https:",
+      })
 
       // Guardar los datos del usuario en localStorage
       if (data.admin) {
         localStorage.setItem("admin", JSON.stringify(data.admin))
       }
 
-      // Esperar un momento antes de redirigir
-      setTimeout(() => {
-        // Redirigir al dashboard de administrador
-        console.log("Redirecting to dashboard...")
-        router.push("/admin/dashboard")
-      }, 500)
+      // Mostrar mensaje de éxito
+      setLoading(false)
+      console.log("Login successful, preparing to redirect...")
+
+      // Usar window.location.href para forzar una recarga completa de la página
+      // Esto es más confiable que router.push() en producción
+      window.location.href = "/admin/dashboard"
     } catch (err) {
       console.error("Admin login error:", err)
       setError((err as Error).message)
-    } finally {
       setLoading(false)
     }
   }
