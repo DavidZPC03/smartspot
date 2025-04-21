@@ -133,7 +133,7 @@ export default function PaymentPage() {
         // 100 para la primera hora, 20 por cada hora adicional
         let price = basePrice + (hours > 1 ? (hours - 1) * hourlyRate : 0)
         // Asegurarnos que el precio mínimo es 100 pesos
-        price = Math.max(price, 100)
+        price = Math.max(price, 1)
         setTotalPrice(price)
 
         // 5. Crear intención de pago con Stripe
