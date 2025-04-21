@@ -40,7 +40,7 @@ export default function PaymentPage() {
   const [endTime, setEndTime] = useState<Date>(new Date())
 
   // Información de precios
-  const [basePrice, setBasePrice] = useState<number>(100) // Precio base para la primera hora
+  const [basePrice, setBasePrice] = useState<number>(1) // Precio base para la primera hora
   const [hourlyRate, setHourlyRate] = useState<number>(20) // Tarifa por hora adicional
   const [totalPrice, setTotalPrice] = useState<number>(0)
   const [durationHours, setDurationHours] = useState<number>(0)
@@ -133,7 +133,7 @@ export default function PaymentPage() {
         // 100 para la primera hora, 20 por cada hora adicional
         let price = basePrice + (hours > 1 ? (hours - 1) * hourlyRate : 0)
         // Asegurarnos que el precio mínimo es 100 pesos
-        price = Math.max(price, 1)
+        price = Math.max(price, 100)
         setTotalPrice(price)
 
         // 5. Crear intención de pago con Stripe
