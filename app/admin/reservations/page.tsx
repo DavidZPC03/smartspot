@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { Search, ChevronLeft, ChevronRight, Eye } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Eye, Clock } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function AdminReservationsPage() {
@@ -137,6 +137,14 @@ export default function AdminReservationsPage() {
     router.push(`/admin/reservations/${id}`)
   }
 
+  const viewReservationStatus = (id: string) => {
+    router.push(`/reservation-status/${id}`)
+  }
+
+  const testTimer = (id: string) => {
+    router.push(`/test-timer/${id}`)
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Administración de Reservaciones</h1>
@@ -186,16 +194,16 @@ export default function AdminReservationsPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="linear-table">
+              <table className="linear-table w-full">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Usuario</th>
-                    <th>Ubicación</th>
-                    <th>Lugar</th>
-                    <th>Fecha Inicio</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
+                    <th className="whitespace-nowrap">ID</th>
+                    <th className="whitespace-nowrap">Usuario</th>
+                    <th className="whitespace-nowrap">Ubicación</th>
+                    <th className="whitespace-nowrap">Lugar</th>
+                    <th className="whitespace-nowrap">Fecha Inicio</th>
+                    <th className="whitespace-nowrap">Estado</th>
+                    <th className="whitespace-nowrap">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -219,14 +227,37 @@ export default function AdminReservationsPage() {
                         </td>
                         <td>{getStatusBadge(reservation.status)}</td>
                         <td>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => viewReservation(reservation.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex flex-wrap gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => viewReservation(reservation.id)}
+                              className="h-8 w-8 p-0"
+                              title="Ver detalles"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => viewReservationStatus(reservation.id)}
+                              className="h-8 w-8 p-0"
+                              title="Ver estado"
+                            >
+                              <Clock className="h-4 w-4" />
+                            </Button>
+                            {reservation.status === "CONFIRMED" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => testTimer(reservation.id)}
+                                className="h-8 text-xs"
+                                title="Probar cronómetro"
+                              >
+                                Probar
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -236,11 +267,11 @@ export default function AdminReservationsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between p-4 border-t border-border/50">
-              <div className="text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-t border-border/50 gap-4">
+              <div className="text-sm text-muted-foreground text-center sm:text-left">
                 Mostrando {reservations.length} de {pagination.total} reservaciones
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-center sm:justify-end space-x-2">
                 <Button
                   variant="outline"
                   size="icon"
@@ -270,4 +301,3 @@ export default function AdminReservationsPage() {
     </div>
   )
 }
-

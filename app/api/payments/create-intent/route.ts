@@ -1,9 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import stripe from "@/lib/stripe"
+import { NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth"
+import stripe from "@/lib/stripe"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     // Verificar autenticación
     const user = await getUserFromRequest(request)
@@ -13,88 +12,38 @@ export async function POST(request: NextRequest) {
 
     // Obtener datos del cuerpo de la solicitud
     const body = await request.json()
-    const { parkingSpotId, startTime, endTime, price } = body
+    const { amount, reservationId, locationId, spotId } = body
 
-    console.log("Datos recibidos para crear intención de pago:", {
-      parkingSpotId,
-      startTime,
-      endTime,
-      price,
-      userId: user.id,
+    if (!amount || amount <= 0) {
+      return NextResponse.json({ error: "Monto inválido" }, { status: 400 })
+    }
+
+    // Make sure we're sending at least 1000 cents (10 MXN) to Stripe
+    const amountInCents = Math.round(amount * 100)
+
+    console.log("Creando intención de pago por:", amountInCents, "centavos")
+
+    // Create a payment intent in Stripe with the corrected amount
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents, // Ensure amount is at least 1000 cents (10 MXN)
+      currency: "mxn",
+      metadata: {
+        userId: user.id,
+        reservationId: reservationId || "",
+        locationId: locationId || "",
+        spotId: spotId || "",
+      },
     })
 
-    if (!parkingSpotId || !startTime || !endTime || !price) {
-      return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 })
-    }
-
-    // Verificar que el lugar de estacionamiento existe
-    const parkingSpot = await prisma.parkingSpot.findUnique({
-      where: { id: parkingSpotId },
-      include: { location: true },
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
     })
-
-    if (!parkingSpot) {
-      return NextResponse.json({ error: "Lugar de estacionamiento no encontrado" }, { status: 404 })
-    }
-
-    // Crear o recuperar el cliente de Stripe
-    let stripeCustomerId = user.stripeCustomerId
-
-    try {
-      if (!stripeCustomerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          name: user.name || undefined,
-          phone: user.phone || undefined,
-          metadata: {
-            userId: user.id,
-          },
-        })
-
-        stripeCustomerId = customer.id
-
-        // Guardar el ID del cliente de Stripe en la base de datos
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { stripeCustomerId },
-        })
-      }
-
-      // Crear un PaymentIntent
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(price * 100), // Stripe trabaja con centavos
-        currency: "mxn",
-        customer: stripeCustomerId,
-        metadata: {
-          parkingSpotId,
-          startTime: new Date(startTime).toISOString(),
-          endTime: new Date(endTime).toISOString(),
-          userId: user.id,
-        },
-      })
-
-      console.log("PaymentIntent creado exitosamente:", paymentIntent.id)
-
-      return NextResponse.json({
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-      })
-    } catch (stripeError) {
-      console.error("Error de Stripe:", stripeError)
-      return NextResponse.json(
-        {
-          error: "Error al procesar con Stripe",
-          details: stripeError.message,
-        },
-        { status: 500 },
-      )
-    }
   } catch (error) {
     console.error("Error creating payment intent:", error)
     return NextResponse.json(
-      { error: "Error al crear intención de pago", details: (error as Error).message },
+      { error: "Error al crear la intención de pago", details: (error as Error).message },
       { status: 500 },
     )
   }
 }
-

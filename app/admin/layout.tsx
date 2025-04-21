@@ -1,289 +1,156 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
-import type { ReactNode } from "react"
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  LayoutDashboard,
-  Calendar,
-  Users,
-  MapPin,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  DollarSign,
-  QrCode,
-  Car,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
-import { useTheme } from "next-themes"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { LayoutDashboard, Users, MapPin, DollarSign, Settings, QrCode, LogOut, Calendar, Menu, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import type { ReactNode } from "react"
 
-interface AdminLayoutProps {
-  children: ReactNode
-}
-
-export default function AdminLayout({ children }: AdminLayoutProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const [isSidebarOpen, setSidebarOpen] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-
-    // Store the current theme before setting admin theme
-    const currentTheme = localStorage.getItem("theme")
-    if (currentTheme) {
-      localStorage.setItem("userTheme", currentTheme)
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+      // Si es móvil, cerrar el sidebar por defecto
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false)
+      } else {
+        setSidebarOpen(true)
+      }
     }
 
-    // Set theme to dark by default for admin panel
-    setTheme("dark")
-  }, [setTheme])
+    // Verificar al cargar
+    checkMobile()
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen)
-  }
+    // Agregar listener para cambios de tamaño
+    window.addEventListener("resize", checkMobile)
 
-  const closeMobileMenu = () => {
-    setMobileMenuOpen(false)
+    // Limpiar listener
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken")
+    localStorage.removeItem("admin")
+    document.cookie = "adminToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
+    window.location.href = "/admin-login"
   }
 
   const isActive = (path: string) => {
-    return pathname?.startsWith(path)
+    return pathname === path || pathname?.startsWith(`${path}/`)
   }
 
-  const handleLogout = () => {
-    // Restore user theme before logging out
-    const userTheme = localStorage.getItem("userTheme")
-    if (userTheme) {
-      localStorage.setItem("theme", userTheme)
-    }
+  const navItems = [
+    { path: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5 mr-3" /> },
+    { path: "/admin/reservations", label: "Reservaciones", icon: <Calendar className="w-5 h-5 mr-3" /> },
+    { path: "/admin/users", label: "Usuarios", icon: <Users className="w-5 h-5 mr-3" /> },
+    { path: "/admin/locations", label: "Ubicaciones", icon: <MapPin className="w-5 h-5 mr-3" /> },
+    { path: "/admin/parking-spots", label: "Lugares", icon: <MapPin className="w-5 h-5 mr-3" /> },
+    { path: "/admin/prices", label: "Precios", icon: <DollarSign className="w-5 h-5 mr-3" /> },
+    { path: "/admin/qr-scanner", label: "Escanear QR", icon: <QrCode className="w-5 h-5 mr-3" /> },
+    { path: "/admin/settings", label: "Configuración", icon: <Settings className="w-5 h-5 mr-3" /> },
+  ]
 
-    // Clear admin-specific data
-    localStorage.removeItem("adminToken")
-    localStorage.removeItem("admin")
-
-    // Remove the cookie
-    document.cookie = "adminToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
-  }
-
-  if (!mounted) return null
+  // Format the date correctly for Spanish locale
+  const date = new Date()
+  const day = date.getDate()
+  const weekday = date.toLocaleDateString("es-ES", { weekday: "long" })
+  const month = date.toLocaleDateString("es-ES", { month: "long" })
+  const year = date.getFullYear()
+  const currentDate = `${weekday}, ${day} de ${month} de ${year}`
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      <div className="min-h-screen flex flex-col md:flex-row dark:linear-gradient-bg">
-        {/* Mobile Header */}
-        <div className="md:hidden bg-background/80 backdrop-blur-md border-b border-border/50 p-4 flex items-center justify-between sticky top-0 z-50">
-          <div className="flex items-center">
-            <span className="font-bold text-xl">SMARTSPOT</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="ghost" onClick={toggleMobileMenu}>
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-          </div>
-        </div>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <div className="flex h-screen bg-white text-gray-800">
+        {/* Sidebar - con transición suave */}
+        <div
+          className={`
+            fixed md:relative z-40 h-full bg-white border-r border-gray-200 
+            transition-all duration-300 ease-in-out
+            ${isSidebarOpen ? "w-64" : "w-0 md:w-16 overflow-hidden"}
+          `}
+        >
+          <div className="flex flex-col h-full">
+            {/* Header del sidebar */}
+            <div className="p-4 flex items-center justify-between border-b border-gray-200">
+              <h1
+                className={`text-xl font-bold text-blue-600 transition-opacity duration-200 ${isSidebarOpen ? "opacity-100" : "opacity-0 md:hidden"}`}
+              >
+                SMARTSPOT
+              </h1>
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!isSidebarOpen)} className="md:hidden">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
 
-        {/* Mobile Sidebar */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-background/95 backdrop-blur-md w-full absolute z-40 top-[60px] left-0 right-0 border-b border-border/50">
-            <nav className="p-4">
-              <ul className="space-y-2">
-                <NavItem
-                  href="/admin/dashboard"
-                  icon={<LayoutDashboard className="h-4 w-4" />}
-                  label="Dashboard"
-                  active={isActive("/admin/dashboard")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <NavItem
-                  href="/admin/reservations"
-                  icon={<Calendar className="h-4 w-4" />}
-                  label="Reservaciones"
-                  active={isActive("/admin/reservations")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <NavItem
-                  href="/admin/users"
-                  icon={<Users className="h-4 w-4" />}
-                  label="Usuarios"
-                  active={isActive("/admin/users")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <NavItem
-                  href="/admin/locations"
-                  icon={<MapPin className="h-4 w-4" />}
-                  label="Ubicaciones"
-                  active={isActive("/admin/locations")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <NavItem
-                  href="/admin/prices"
-                  icon={<DollarSign className="h-4 w-4" />}
-                  label="Precios"
-                  active={isActive("/admin/prices")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <NavItem
-                  href="/admin/qr-scanner"
-                  icon={<QrCode className="h-4 w-4" />}
-                  label="Escanear QR"
-                  active={isActive("/admin/qr-scanner")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <NavItem
-                  href="/admin/settings"
-                  icon={<Settings className="h-4 w-4" />}
-                  label="Configuración"
-                  active={isActive("/admin/settings")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <NavItem
-                  href="/admin/parking-spots"
-                  icon={<Car className="h-4 w-4" />}
-                  label="Lugares"
-                  active={isActive("/admin/parking-spots")}
-                  onClick={closeMobileMenu}
-                  mobile
-                />
-                <li className="border-t border-border/50 pt-2 mt-2">
-                  <Link
-                    href="/"
-                    className="flex items-center p-2 rounded-md hover:bg-accent/50 transition-colors"
-                    onClick={() => {
-                      closeMobileMenu()
-                      handleLogout()
-                    }}
-                  >
-                    <LogOut className="mr-3 h-4 w-4" />
-                    <span>Salir</span>
-                  </Link>
-                </li>
+            {/* Navegación */}
+            <nav className="flex-1 py-4 overflow-y-auto">
+              <ul className="space-y-1 px-2">
+                {navItems.map((item) => (
+                  <li key={item.path}>
+                    <Link
+                      href={item.path}
+                      className={`flex items-center px-4 py-3 rounded-md transition-colors ${
+                        isActive(item.path) ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                      onClick={() => isMobile && setSidebarOpen(false)}
+                      title={!isSidebarOpen ? item.label : undefined}
+                    >
+                      <div className="flex-shrink-0">
+                        {React.cloneElement(item.icon as React.ReactElement, {
+                          className: `w-5 h-5 ${isSidebarOpen ? "mr-3" : ""}`,
+                        })}
+                      </div>
+                      <span
+                        className={`transition-opacity duration-200 ${isSidebarOpen ? "opacity-100" : "opacity-0 hidden md:block"}`}
+                      >
+                        {item.label}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </nav>
-          </div>
-        )}
 
-        {/* Desktop Sidebar */}
-        <div className="hidden md:flex w-64 linear-sidebar flex-col h-screen sticky top-0">
-          <div className="p-4 border-b border-border/50 flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold">SMARTSPOT</h1>
-              <p className="text-xs text-muted-foreground">Panel de Administración</p>
+            {/* Footer del sidebar */}
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={handleLogout}
+                className={`flex items-center w-full px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-md transition-colors`}
+                title={!isSidebarOpen ? "Cerrar sesión" : undefined}
+              >
+                <LogOut className={`w-5 h-5 ${isSidebarOpen ? "mr-3" : ""}`} />
+                <span
+                  className={`transition-opacity duration-200 ${isSidebarOpen ? "opacity-100" : "opacity-0 hidden md:block"}`}
+                >
+                  Cerrar sesión
+                </span>
+              </button>
             </div>
-            <ThemeToggle />
-          </div>
-          <nav className="flex-1 p-4 overflow-y-auto">
-            <ul className="space-y-1">
-              <NavItem
-                href="/admin/dashboard"
-                icon={<LayoutDashboard className="h-4 w-4" />}
-                label="Dashboard"
-                active={isActive("/admin/dashboard")}
-              />
-              <NavItem
-                href="/admin/reservations"
-                icon={<Calendar className="h-4 w-4" />}
-                label="Reservaciones"
-                active={isActive("/admin/reservations")}
-              />
-              <NavItem
-                href="/admin/users"
-                icon={<Users className="h-4 w-4" />}
-                label="Usuarios"
-                active={isActive("/admin/users")}
-              />
-              <NavItem
-                href="/admin/locations"
-                icon={<MapPin className="h-4 w-4" />}
-                label="Ubicaciones"
-                active={isActive("/admin/locations")}
-              />
-              <NavItem
-                href="/admin/prices"
-                icon={<DollarSign className="h-4 w-4" />}
-                label="Precios"
-                active={isActive("/admin/prices")}
-              />
-              <NavItem
-                href="/admin/qr-scanner"
-                icon={<QrCode className="h-4 w-4" />}
-                label="Escanear QR"
-                active={isActive("/admin/qr-scanner")}
-              />
-              <NavItem
-                href="/admin/settings"
-                icon={<Settings className="h-4 w-4" />}
-                label="Configuración"
-                active={isActive("/admin/settings")}
-              />
-              <NavItem
-                href="/admin/parking-spots"
-                icon={<Car className="h-4 w-4" />}
-                label="Lugares"
-                active={isActive("/admin/parking-spots")}
-              />
-            </ul>
-          </nav>
-          <div className="p-4 border-t border-border/50">
-            <Link
-              href="/"
-              className="flex items-center p-2 rounded-md hover:bg-accent/50 transition-colors"
-              onClick={handleLogout}
-            >
-              <LogOut className="mr-3 h-4 w-4" />
-              <span>Salir</span>
-            </Link>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 min-h-screen">
-          <main className="p-4 md:p-6 max-w-7xl mx-auto">{children}</main>
+        {/* Main content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header fijo en la parte superior */}
+          <header className="bg-white border-b border-gray-200 py-3 px-4 flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!isSidebarOpen)} className="mr-2">
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="text-gray-500 text-sm">{currentDate}</div>
+          </header>
+
+          {/* Contenido principal */}
+          <main className="flex-1 overflow-auto p-4 md:p-6 bg-gray-50">{children}</main>
         </div>
       </div>
     </ThemeProvider>
   )
 }
-
-interface NavItemProps {
-  href: string
-  icon: React.ReactNode
-  label: string
-  active: boolean
-  onClick?: () => void
-  mobile?: boolean
-}
-
-function NavItem({ href, icon, label, active, onClick, mobile }: NavItemProps) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className={`flex items-center ${mobile ? "p-2" : "px-3 py-2"} rounded-md transition-colors ${
-          active ? "bg-primary/10 text-primary" : "hover:bg-accent/50"
-        }`}
-        onClick={onClick}
-      >
-        <span className={`${active ? "text-primary" : "text-muted-foreground"} mr-3`}>{icon}</span>
-        <span className={active ? "font-medium" : ""}>{label}</span>
-      </Link>
-    </li>
-  )
-}
-

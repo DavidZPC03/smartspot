@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,115 +16,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, Upload, Camera, Check, X } from "lucide-react"
-import { Html5QrcodeScanner } from "html5-qrcode"
+import { Loader2, Upload, Camera, Check, X, ExternalLink } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-
-interface ReservationDetails {
-  id: string
-  userId: string
-  nombre?: string
-  fechaReservacion: string
-  horaInicio: string
-  horaFin: string
-  lugarEstacionamiento: string
-  ubicacion: string
-  estado: string
-  precio: number
-  signature: string
-}
+import WebcamQRScanner from "@/components/webcam-qr-scanner"
 
 export default function QRScannerPage() {
   const [activeTab, setActiveTab] = useState("camera")
   const [manualCode, setManualCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [scannerInitialized, setScannerInitialized] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
-  const [reservationDetails, setReservationDetails] = useState<ReservationDetails | null>(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [confirmSuccess, setConfirmSuccess] = useState(false)
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null)
-  const [scanning, setScanning] = useState(false)
-  const [scannedData, setScannedData] = useState<string | null>(null)
   const [reservation, setReservation] = useState<any | null>(null)
-
-  useEffect(() => {
-    return () => {
-      // Cleanup scanner when component unmounts
-      if (scannerRef.current) {
-        try {
-          scannerRef.current.clear()
-        } catch (error) {
-          console.error("Error clearing scanner:", error)
-        }
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (activeTab === "camera" && !scannerInitialized) {
-      initializeScanner()
-    }
-  }, [activeTab, scannerInitialized])
-
-  const initializeScanner = () => {
-    try {
-      if (scannerRef.current) {
-        try {
-          scannerRef.current.clear()
-        } catch (error) {
-          console.error("Error clearing existing scanner:", error)
-        }
-      }
-
-      const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 }, false)
-
-      scanner.render(onScanSuccess, onScanError)
-      scannerRef.current = scanner
-      setScannerInitialized(true)
-    } catch (error) {
-      console.error("Error initializing scanner:", error)
-      setError("Error al inicializar el escáner de QR")
-    }
-  }
-
-  const onScanSuccess = async (decodedText: string) => {
-    try {
-      // Pause the scanner
-      if (scannerRef.current) {
-        try {
-          await scannerRef.current.pause(true)
-        } catch (error) {
-          console.error("Error pausing scanner:", error)
-        }
-      }
-
-      await processQRCode(decodedText)
-    } catch (error) {
-      console.error("Error in scan success handler:", error)
-      setError((error as Error).message || "Error al procesar el código QR")
-
-      // Resume the scanner after error
-      if (scannerRef.current) {
-        try {
-          await scannerRef.current.resume()
-        } catch (resumeError) {
-          console.error("Error resuming scanner:", resumeError)
-        }
-      }
-    }
-  }
-
-  const onScanError = (error: any) => {
-    // Only log the error, don't show to user as this happens frequently
-    console.error("QR scan error:", error)
-  }
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const [processingImage, setProcessingImage] = useState(false)
+  const [confirmationComplete, setConfirmationComplete] = useState(false)
 
   const handleManualVerify = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -144,14 +56,23 @@ export default function QRScannerPage() {
   const processQRCode = async (qrCode: string) => {
     setLoading(true)
     setError(null)
+    setDebugInfo(`Processing QR code: ${qrCode}`)
 
     try {
+      console.log("Processing QR code:", qrCode)
+
       // Verificar el QR usando la API
       const adminToken = localStorage.getItem("adminToken")
       if (!adminToken) {
+        console.error("No admin token found")
+        setDebugInfo("No admin token found")
         throw new Error("No estás autenticado como administrador")
       }
 
+      setDebugInfo(`Admin token found: ${adminToken.substring(0, 10)}...`)
+      console.log("Sending request to verify QR code")
+
+      // Use the App Router API route
       const response = await fetch("/api/admin/verify-qr", {
         method: "POST",
         headers: {
@@ -161,12 +82,31 @@ export default function QRScannerPage() {
         body: JSON.stringify({ qrCode }),
       })
 
+      console.log("Response status:", response.status)
+      setDebugInfo(`API response status: ${response.status}`)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Error al verificar el código QR")
+        const errorText = await response.text()
+        console.error("Error response:", errorText)
+        setDebugInfo(`Error response: ${errorText.substring(0, 100)}...`)
+
+        let errorMessage = "Error al verificar el código QR"
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch (e) {
+          // If we can't parse the error as JSON, just use the text
+          if (errorText && !errorText.includes("<!DOCTYPE html>")) {
+            errorMessage = errorText
+          }
+        }
+
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
+      console.log("Response data:", result)
+      setDebugInfo(`API response data: ${JSON.stringify(result).substring(0, 100)}...`)
 
       if (!result.valid) {
         throw new Error(result.message || "Código QR inválido")
@@ -196,6 +136,8 @@ export default function QRScannerPage() {
         throw new Error("No estás autenticado como administrador")
       }
 
+      console.log("Confirming reservation:", reservation.id)
+
       // Actualizar el estado de la reservación en la base de datos
       const response = await fetch(`/api/admin/reservations/${reservation.id}/confirm`, {
         method: "POST",
@@ -205,12 +147,29 @@ export default function QRScannerPage() {
         },
       })
 
+      console.log("Confirmation response status:", response.status)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Error al confirmar la reservación")
+        const errorText = await response.text()
+        console.error("Error response:", errorText)
+
+        let errorMessage = "Error al confirmar la reservación"
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch (e) {
+          // If we can't parse the error as JSON, just use the text
+          if (errorText && !errorText.includes("<!DOCTYPE html>")) {
+            errorMessage = errorText
+          }
+        }
+
+        throw new Error(errorMessage)
       }
 
+      console.log("Reservation confirmed successfully")
       setConfirmSuccess(true)
+      setConfirmationComplete(true)
 
       // Close dialog after 2 seconds
       setTimeout(() => {
@@ -221,17 +180,6 @@ export default function QRScannerPage() {
         // Reset manual code if in manual tab
         if (activeTab === "manual") {
           setManualCode("")
-        }
-
-        // Resume scanner if in camera tab
-        if (activeTab === "camera" && scannerRef.current) {
-          try {
-            scannerRef.current.resume()
-          } catch (error) {
-            console.error("Error resuming scanner:", error)
-            // If resume fails, reinitialize
-            initializeScanner()
-          }
         }
       }, 2000)
     } catch (error) {
@@ -245,17 +193,6 @@ export default function QRScannerPage() {
   const cancelConfirmation = () => {
     setShowConfirmation(false)
     setReservation(null)
-
-    // Resume scanner if in camera tab
-    if (activeTab === "camera" && scannerRef.current) {
-      try {
-        scannerRef.current.resume()
-      } catch (error) {
-        console.error("Error resuming scanner:", error)
-        // If resume fails, reinitialize
-        initializeScanner()
-      }
-    }
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,16 +201,38 @@ export default function QRScannerPage() {
 
     setSelectedFile(file)
     setError(null)
+    setProcessingImage(true)
 
     // Create preview URL
     const reader = new FileReader()
     reader.onload = async (e) => {
       const dataUrl = e.target?.result as string
       setPreviewUrl(dataUrl)
+      setProcessingImage(false)
 
-      // For now, we'll just show the image and ask the user to enter the code manually
-      setActiveTab("manual")
-      setError("Por favor, ingresa manualmente el código QR que aparece en la imagen")
+      // Extraer el nombre del archivo para buscar patrones de ID de pago
+      const fileName = file.name || ""
+
+      // Buscar patrones de ID de pago en el nombre del archivo
+      const paymentIdMatch = fileName.match(/pi_[a-zA-Z0-9]{24,}/)
+      if (paymentIdMatch) {
+        const paymentId = paymentIdMatch[0]
+        setDebugInfo(`Detected payment ID in filename: ${paymentId}`)
+        setManualCode(paymentId)
+
+        try {
+          await processQRCode(paymentId)
+        } catch (error) {
+          console.error("Error processing payment ID from filename:", error)
+          setError(
+            "No se pudo procesar el ID de pago del nombre del archivo. Por favor, ingresa manualmente el código QR.",
+          )
+        }
+      } else {
+        setError(
+          "No se pudo detectar un código QR en la imagen. Por favor, ingresa manualmente el código QR que aparece en la imagen.",
+        )
+      }
     }
     reader.readAsDataURL(file)
   }
@@ -292,9 +251,27 @@ export default function QRScannerPage() {
     }
   }
 
+  const handleScan = async (data: string) => {
+    if (data) {
+      try {
+        console.log("QR code scanned:", data)
+        setDebugInfo(`QR code scanned: ${data}`)
+        await processQRCode(data)
+      } catch (error) {
+        setError((error as Error).message)
+      }
+    }
+  }
+
+  const handleScanError = (error: string) => {
+    console.error("QR scan error:", error)
+    setError("Error al escanear: " + error)
+    setDebugInfo(`Scan error: ${error}`)
+  }
+
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6">Escáner de Códigos QR</h1>
+    <div className="container mx-auto py-4 md:py-6">
+      <h1 className="text-2xl font-bold mb-4 md:mb-6">Escáner de Códigos QR</h1>
 
       <Card className="w-full max-w-3xl mx-auto">
         <CardHeader>
@@ -306,18 +283,20 @@ export default function QRScannerPage() {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="camera">
                 <Camera className="mr-2 h-4 w-4" />
-                Cámara
+                <span className="hidden sm:inline">Cámara</span>
               </TabsTrigger>
               <TabsTrigger value="upload">
                 <Upload className="mr-2 h-4 w-4" />
-                Subir Imagen
+                <span className="hidden sm:inline">Subir Imagen</span>
               </TabsTrigger>
-              <TabsTrigger value="manual">Manual</TabsTrigger>
+              <TabsTrigger value="manual">
+                <span className="hidden sm:inline">Manual</span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="camera" className="mt-4">
               <div className="flex flex-col items-center">
-                <div id="qr-reader" className="w-full max-w-sm"></div>
+                <WebcamQRScanner onScan={handleScan} onError={handleScanError} />
                 {loading && (
                   <div className="flex items-center justify-center mt-4">
                     <Loader2 className="h-6 w-6 animate-spin mr-2" />
@@ -330,7 +309,7 @@ export default function QRScannerPage() {
             <TabsContent value="upload" className="mt-4">
               <div className="flex flex-col items-center space-y-4">
                 <div
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 w-full max-w-sm flex flex-col items-center justify-center cursor-pointer hover:border-primary"
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 md:p-6 w-full max-w-sm flex flex-col items-center justify-center cursor-pointer hover:border-primary"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {previewUrl ? (
@@ -342,7 +321,7 @@ export default function QRScannerPage() {
                   ) : (
                     <Upload className="h-12 w-12 text-gray-400 mb-4" />
                   )}
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 text-center">
                     {selectedFile ? selectedFile.name : "Haz clic para subir una imagen de código QR"}
                   </p>
                   <input
@@ -354,10 +333,39 @@ export default function QRScannerPage() {
                   />
                 </div>
 
-                {loading && (
+                {processingImage && (
                   <div className="flex items-center justify-center">
                     <Loader2 className="h-6 w-6 animate-spin mr-2" />
                     <span>Procesando imagen...</span>
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span>Verificando código QR...</span>
+                  </div>
+                )}
+
+                {error && previewUrl && (
+                  <div className="w-full">
+                    <p className="text-sm text-gray-700 mb-2">
+                      Si no se pudo detectar automáticamente, ingresa el código manualmente:
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        placeholder="Ingresa el código QR manualmente"
+                        value={manualCode}
+                        onChange={(e) => setManualCode(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={() => handleManualVerify({ preventDefault: () => {} } as React.FormEvent)}
+                        disabled={loading || !manualCode.trim()}
+                      >
+                        Verificar
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -396,12 +404,20 @@ export default function QRScannerPage() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          {/* Debug information */}
+          {debugInfo && (
+            <div className="mt-4 p-2 bg-gray-100 rounded text-xs font-mono overflow-auto max-h-32">
+              <p className="text-gray-500">Debug info:</p>
+              <pre className="whitespace-pre-wrap break-words">{debugInfo}</pre>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <DialogContent>
+        <DialogContent className="w-[95%] max-w-md mx-auto">
           <DialogHeader>
             <DialogTitle>Confirmar Reservación</DialogTitle>
             <DialogDescription>Verifica los detalles de la reservación antes de confirmar</DialogDescription>
@@ -444,15 +460,37 @@ export default function QRScannerPage() {
                   <AlertDescription>Reservación confirmada exitosamente</AlertDescription>
                 </Alert>
               )}
+
+              {confirmationComplete && (
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => window.open(`/reservation-status/${reservation.id}`, "_blank")}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Ver estado de la reservación
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={cancelConfirmation} disabled={confirmLoading || confirmSuccess}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={cancelConfirmation}
+              disabled={confirmLoading || confirmSuccess}
+              className="w-full sm:w-auto"
+            >
               <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
-            <Button onClick={confirmReservation} disabled={confirmLoading || confirmSuccess}>
+            <Button
+              onClick={confirmReservation}
+              disabled={confirmLoading || confirmSuccess}
+              className="w-full sm:w-auto"
+            >
               {confirmLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -471,4 +509,3 @@ export default function QRScannerPage() {
     </div>
   )
 }
-

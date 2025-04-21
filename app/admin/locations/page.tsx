@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { MapPin, ArrowLeft, Edit, Plus, Trash2 } from "lucide-react"
+import { MapPin, Edit, Plus, Trash2, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Dialog,
@@ -254,16 +254,10 @@ export default function AdminLocationsPage() {
 
   if (loading && locations.length === 0) {
     return (
-      <div className="flex min-h-screen flex-col bg-gray-100 p-4">
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <Button variant="outline" onClick={() => router.push("/admin/dashboard")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver al Dashboard
-            </Button>
-            <h1 className="text-2xl font-bold">Administración de Ubicaciones</h1>
-          </div>
-          <p className="text-center py-8">Cargando ubicaciones...</p>
+      <div className="flex flex-col space-y-4">
+        <h1 className="text-2xl font-bold">Administración de Ubicaciones</h1>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     )
@@ -271,144 +265,129 @@ export default function AdminLocationsPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col bg-gray-100 p-4">
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <Button variant="outline" onClick={() => router.push("/admin/dashboard")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver al Dashboard
-            </Button>
-            <h1 className="text-2xl font-bold">Administración de Ubicaciones</h1>
-          </div>
-          <Alert variant="destructive" className="mb-4">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-          <Button onClick={() => router.push("/admin/dashboard")}>Volver al Dashboard</Button>
-        </div>
+      <div className="flex flex-col space-y-4">
+        <h1 className="text-2xl font-bold">Administración de Ubicaciones</h1>
+        <Alert variant="destructive" className="mb-4">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100 p-4">
-      <div className="container mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <Button variant="outline" onClick={() => router.push("/admin/dashboard")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver al Dashboard
-          </Button>
-          <h1 className="text-2xl font-bold">Administración de Ubicaciones</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl font-bold">Administración de Ubicaciones</h1>
+        <Button onClick={handleAddLocation} className="flex items-center gap-1">
+          <Plus className="h-4 w-4" />
+          Agregar Ubicación
+        </Button>
+      </div>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Ubicaciones Disponibles</CardTitle>
+          <CardDescription>
+            Aquí puedes ver, agregar, editar y eliminar las ubicaciones disponibles en el sistema.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-4">
+            Gestiona las ubicaciones y el número de lugares de estacionamiento disponibles en cada una.
+          </p>
+        </CardContent>
+      </Card>
+
+      {locations.length === 0 ? (
+        <div className="text-center py-8 bg-white rounded-lg shadow">
+          <p className="text-muted-foreground mb-4">No hay ubicaciones disponibles</p>
           <Button onClick={handleAddLocation} className="flex items-center gap-1">
             <Plus className="h-4 w-4" />
-            Agregar Ubicación
+            Agregar Primera Ubicación
           </Button>
         </div>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Ubicaciones Disponibles</CardTitle>
-            <CardDescription>
-              Aquí puedes ver, agregar, editar y eliminar las ubicaciones disponibles en el sistema.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4">
-              Gestiona las ubicaciones y el número de lugares de estacionamiento disponibles en cada una.
-            </p>
-          </CardContent>
-        </Card>
-
-        {locations.length === 0 ? (
-          <div className="text-center py-8 bg-white rounded-lg shadow">
-            <p className="text-muted-foreground mb-4">No hay ubicaciones disponibles</p>
-            <Button onClick={handleAddLocation} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Agregar Primera Ubicación
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {locations.map((location) => (
-              <Card key={location.id} className="overflow-hidden">
-                <CardHeader className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg flex items-center">
-                        <MapPin className="h-5 w-5 mr-2 text-blue-500" />
-                        {location.name}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground">{location.address}</p>
-                      {location.city && (
-                        <p className="text-xs text-muted-foreground">
-                          {location.city}, {location.state}, {location.country}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleEditLocation(location)}
-                        className="flex items-center gap-1"
-                      >
-                        <Edit className="h-4 w-4" />
-                        Editar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex items-center gap-1 text-red-500 hover:text-red-700"
-                        onClick={() => handleDeleteLocation(location.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Eliminar
-                      </Button>
-                    </div>
+      ) : (
+        <div className="space-y-6">
+          {locations.map((location) => (
+            <Card key={location.id} className="overflow-hidden">
+              <CardHeader className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-lg flex items-center">
+                      <MapPin className="h-5 w-5 mr-2 text-blue-500" />
+                      {location.name}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">{location.address}</p>
+                    {location.city && (
+                      <p className="text-xs text-muted-foreground">
+                        {location.city}, {location.state}, {location.country}
+                      </p>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <h3 className="font-medium mb-2">Resumen de lugares de estacionamiento:</h3>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Total de Lugares</TableHead>
-                          <TableHead>Disponibles</TableHead>
-                          <TableHead>Ocupados</TableHead>
-                          <TableHead>Rango de Precios</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell>{location.totalSpots}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-green-100 text-green-800">
-                              {location.parkingSpots.filter((spot) => spot.isAvailable).length}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-red-100 text-red-800">
-                              {location.parkingSpots.filter((spot) => !spot.isAvailable).length}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {location.parkingSpots.length > 0
-                              ? `$${Math.min(...location.parkingSpots.map((spot) => spot.price))} - $${Math.max(...location.parkingSpots.map((spot) => spot.price))}`
-                              : "No hay lugares"}
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleEditLocation(location)}
+                      className="flex items-center gap-1"
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span className="hidden sm:inline">Editar</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-1 text-red-500 hover:text-red-700"
+                      onClick={() => handleDeleteLocation(location.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Eliminar</span>
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <h3 className="font-medium mb-2">Resumen de lugares de estacionamiento:</h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">Total de Lugares</TableHead>
+                        <TableHead className="whitespace-nowrap">Disponibles</TableHead>
+                        <TableHead className="whitespace-nowrap">Ocupados</TableHead>
+                        <TableHead className="whitespace-nowrap">Rango de Precios</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>{location.totalSpots}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-green-100 text-green-800">
+                            {location.parkingSpots.filter((spot) => spot.isAvailable).length}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-red-100 text-red-800">
+                            {location.parkingSpots.filter((spot) => !spot.isAvailable).length}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {location.parkingSpots.length > 0
+                            ? `$${Math.min(...location.parkingSpots.map((spot) => spot.price))} - $${Math.max(...location.parkingSpots.map((spot) => spot.price))}`
+                            : "No hay lugares"}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Diálogo para agregar/editar ubicación */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95%] max-w-[500px] mx-auto">
           <DialogHeader>
             <DialogTitle>{isEditing ? "Editar Ubicación" : "Agregar Nueva Ubicación"}</DialogTitle>
             <DialogDescription>
@@ -470,12 +449,26 @@ export default function AdminLocationsPage() {
                 </Alert>
               )}
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="w-full sm:w-auto"
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={formLoading}>
-                {formLoading ? "Guardando..." : isEditing ? "Actualizar" : "Crear"}
+              <Button type="submit" disabled={formLoading} className="w-full sm:w-auto">
+                {formLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Guardando...
+                  </>
+                ) : isEditing ? (
+                  "Actualizar"
+                ) : (
+                  "Crear"
+                )}
               </Button>
             </DialogFooter>
           </form>
@@ -484,4 +477,3 @@ export default function AdminLocationsPage() {
     </div>
   )
 }
-

@@ -66,3 +66,13 @@ export async function getCurrentUser(request?: NextRequest) {
   return getUserFromRequest(request)
 }
 
+// Función para verificar token de administrador
+export async function verifyAdminToken(token: string) {
+  try {
+    const decoded = verify(token, AUTH_SECRET) as { id: string; role: string }
+    return decoded && decoded.role === "admin"
+  } catch (error) {
+    console.error("Error verifying admin token:", error)
+    return false
+  }
+}

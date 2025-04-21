@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma" // Changed from 'import prisma from "@/lib/prisma"'
+import { prisma } from "@/lib/prisma"
 import { getUserFromRequest } from "@/lib/auth"
 import crypto from "crypto"
 
@@ -53,14 +53,36 @@ export async function POST(request: Request) {
     // Generar un código QR único (texto simple)
     const qrCode = crypto.randomBytes(6).toString("hex").toUpperCase()
 
-    // Crear la reservación con estado CONFIRMED
+    // Asegurarse de que el precio sea un número
+    const finalPrice = typeof price === "number" ? price : Number.parseFloat(price)
+
+    // Calcular la duración en horas para verificar el precio
+    const start = new Date(startTime)
+    const end = new Date(endTime)
+    const diffMs = end.getTime() - start.getTime()
+    const diffHours = diffMs / (1000 * 60 * 60)
+    const hours = Math.max(diffHours, 1) // Mínimo 1 hora
+
+    // Calcular el precio esperado
+    const basePrice = 100
+    const hourlyRate = 20
+    let expectedPrice = basePrice
+
+    if (hours > 1) {
+      const additionalHours = Math.ceil(hours - 1)
+      expectedPrice = basePrice + additionalHours * hourlyRate
+    }
+
+    console.log(`Duración: ${hours} horas, Precio esperado: ${expectedPrice}, Precio recibido: ${finalPrice}`)
+
+    // Crear la reservación con estado PENDING
     const reservation = await prisma.reservation.create({
       data: {
         startTime: new Date(startTime),
         endTime: new Date(endTime),
-        status: "CONFIRMED",
+        status: "PENDING", // Cambiado de CONFIRMED a PENDING
         paymentMethod: "stripe",
-        price: Number.parseFloat(price.toString()),
+        price: isNaN(finalPrice) ? expectedPrice : finalPrice, // Usar precio esperado si finalPrice es NaN
         paymentId: paymentIntentId,
         stripePaymentIntentId: paymentIntentId,
         stripePaymentStatus: "succeeded",
@@ -100,7 +122,7 @@ export async function POST(request: Request) {
       horaFin: reservation.endTime.toISOString(),
       lugarEstacionamiento: `Lugar ${reservation.parkingSpot.spotNumber}`,
       ubicacion: reservation.parkingSpot.location.name,
-      estado: "CONFIRMADO",
+      estado: "PENDIENTE", // Cambiado de CONFIRMADO a PENDIENTE
       precio: reservation.price,
     }
 
@@ -125,4 +147,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

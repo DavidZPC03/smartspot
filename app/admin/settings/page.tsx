@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { ArrowLeft, Mail, Settings, ChevronLeft, ChevronRight } from "lucide-react"
+import { Mail, Settings, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface EmailLog {
@@ -83,171 +83,161 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100">
-      <header className="bg-gray-900 text-white p-4">
-        <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold">SMARTSPOT ADMIN</h1>
-          <Button variant="outline" onClick={() => router.push("/admin/dashboard")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver al Dashboard
-          </Button>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold mb-4">Configuración</h1>
 
-      <main className="flex-1 p-4">
-        <div className="container mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">Configuración</CardTitle>
-              <CardDescription>Administra la configuración del sistema</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-4">
-                  <TabsTrigger value="emails">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Correos Enviados
-                  </TabsTrigger>
-                  <TabsTrigger value="settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Configuración General
-                  </TabsTrigger>
-                </TabsList>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl">Configuración del Sistema</CardTitle>
+          <CardDescription>Administra la configuración del sistema</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="emails">
+                <Mail className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Correos Enviados</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings">
+                <Settings className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Configuración General</span>
+              </TabsTrigger>
+            </TabsList>
 
-                <TabsContent value="emails">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Historial de Correos Enviados</CardTitle>
-                      <CardDescription>Registro de todos los correos enviados a los usuarios</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {error && (
-                        <Alert variant="destructive" className="mb-4">
-                          <AlertTitle>Error</AlertTitle>
-                          <AlertDescription>{error}</AlertDescription>
-                        </Alert>
-                      )}
+            <TabsContent value="emails">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Historial de Correos Enviados</CardTitle>
+                  <CardDescription>Registro de todos los correos enviados a los usuarios</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {error && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
 
-                      {loading ? (
-                        <div className="flex justify-center items-center h-40">Cargando...</div>
-                      ) : emailLogs.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          No hay registros de correos enviados
+                  {loading ? (
+                    <div className="flex justify-center items-center h-40">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span>Cargando...</span>
+                    </div>
+                  ) : emailLogs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">No hay registros de correos enviados</div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="whitespace-nowrap">Destinatario</TableHead>
+                              <TableHead className="whitespace-nowrap">Asunto</TableHead>
+                              <TableHead className="whitespace-nowrap">Fecha de Envío</TableHead>
+                              <TableHead className="whitespace-nowrap">Estado</TableHead>
+                              <TableHead className="whitespace-nowrap">Reservación</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {emailLogs.map((log) => (
+                              <TableRow key={log.id}>
+                                <TableCell className="max-w-[150px] truncate">{log.to}</TableCell>
+                                <TableCell className="max-w-[200px] truncate">{log.subject}</TableCell>
+                                <TableCell className="whitespace-nowrap">
+                                  {format(new Date(log.sentAt), "PPP HH:mm", { locale: es })}
+                                </TableCell>
+                                <TableCell>
+                                  {log.status === "SENT" ? (
+                                    <Badge variant="outline" className="bg-green-100 text-green-800">
+                                      Enviado
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="bg-red-100 text-red-800">
+                                      Fallido
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {log.reservationId ? (
+                                    <Button
+                                      variant="link"
+                                      onClick={() => router.push(`/admin/reservations/${log.reservationId}`)}
+                                      className="p-0 h-auto"
+                                    >
+                                      Ver
+                                    </Button>
+                                  ) : (
+                                    "N/A"
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Pagination */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-4">
+                        <div className="text-sm text-muted-foreground text-center sm:text-left">
+                          Página {page} de {totalPages}
                         </div>
-                      ) : (
-                        <>
-                          <div className="overflow-x-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Destinatario</TableHead>
-                                  <TableHead>Asunto</TableHead>
-                                  <TableHead>Fecha de Envío</TableHead>
-                                  <TableHead>Estado</TableHead>
-                                  <TableHead>Reservación</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {emailLogs.map((log) => (
-                                  <TableRow key={log.id}>
-                                    <TableCell>{log.to}</TableCell>
-                                    <TableCell>{log.subject}</TableCell>
-                                    <TableCell>{format(new Date(log.sentAt), "PPP HH:mm", { locale: es })}</TableCell>
-                                    <TableCell>
-                                      {log.status === "SENT" ? (
-                                        <Badge variant="outline" className="bg-green-100 text-green-800">
-                                          Enviado
-                                        </Badge>
-                                      ) : (
-                                        <Badge variant="outline" className="bg-red-100 text-red-800">
-                                          Fallido
-                                        </Badge>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      {log.reservationId ? (
-                                        <Button
-                                          variant="link"
-                                          onClick={() => router.push(`/admin/reservations/${log.reservationId}`)}
-                                          className="p-0 h-auto"
-                                        >
-                                          Ver Reservación
-                                        </Button>
-                                      ) : (
-                                        "N/A"
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-
-                          {/* Pagination */}
-                          <div className="flex items-center justify-between mt-4">
-                            <div className="text-sm text-muted-foreground">
-                              Página {page} de {totalPages}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handlePageChange(page - 1)}
-                                disabled={page === 1}
-                              >
-                                <ChevronLeft className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handlePageChange(page + 1)}
-                                disabled={page === totalPages}
-                              >
-                                <ChevronRight className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="settings">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Configuración General</CardTitle>
-                      <CardDescription>Configura los parámetros generales del sistema</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <h3 className="text-lg font-medium">Configuración de Correo</h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Estos ajustes se configuran a través de variables de entorno en el servidor.
-                          </p>
-                          <div className="bg-gray-50 p-4 rounded-md">
-                            <p className="text-sm">
-                              <strong>Servidor SMTP:</strong> {process.env.EMAIL_HOST || "smtp.gmail.com"}
-                            </p>
-                            <p className="text-sm">
-                              <strong>Puerto:</strong> {process.env.EMAIL_PORT || "587"}
-                            </p>
-                            <p className="text-sm">
-                              <strong>Correo remitente:</strong> {process.env.EMAIL_USER || "configurar en .env"}
-                            </p>
-                          </div>
+                        <div className="flex items-center justify-center sm:justify-end space-x-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handlePageChange(page - 1)}
+                            disabled={page === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handlePageChange(page + 1)}
+                            disabled={page === totalPages}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="settings">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configuración General</CardTitle>
+                  <CardDescription>Configura los parámetros generales del sistema</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-medium">Configuración de Correo</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Estos ajustes se configuran a través de variables de entorno en el servidor.
+                      </p>
+                      <div className="bg-gray-50 p-4 rounded-md">
+                        <p className="text-sm">
+                          <strong>Servidor SMTP:</strong> {process.env.EMAIL_HOST || "smtp.gmail.com"}
+                        </p>
+                        <p className="text-sm">
+                          <strong>Puerto:</strong> {process.env.EMAIL_PORT || "587"}
+                        </p>
+                        <p className="text-sm">
+                          <strong>Correo remitente:</strong> {process.env.EMAIL_USER || "configurar en .env"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }
-

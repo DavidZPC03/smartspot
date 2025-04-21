@@ -18,7 +18,9 @@ export function ThemeToggle({ className = "", variant = "outline", size = "icon"
   // Ensure component is mounted before accessing theme
   useEffect(() => {
     setMounted(true)
-  }, [])
+    // Set theme to light by default
+    setTheme("light")
+  }, [setTheme])
 
   if (!mounted) {
     return null
@@ -28,13 +30,12 @@ export function ThemeToggle({ className = "", variant = "outline", size = "icon"
     <Button
       variant={variant}
       size={size}
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={() => setTheme(theme === "light" ? "dark" : "light")}
       className={className}
-      title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+      title={theme === "light" ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}
     >
-      {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      <span className="sr-only">{theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}</span>
+      {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+      <span className="sr-only">{theme === "light" ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}</span>
     </Button>
   )
 }
-

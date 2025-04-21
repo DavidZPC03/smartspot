@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     // Generar un código QR único (usando crypto en lugar de uuid)
     const qrCode = crypto.randomBytes(6).toString("hex").toUpperCase()
 
-    // Crear la reservación en la base de datos con estado CONFIRMED
+    // Crear la reservación en la base de datos con estado PENDING
     const reservation = await prisma.reservation.create({
       data: {
         userId: user.id,
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         paymentMethod: body.paymentMethod || "card",
         paymentId: body.paymentId || null,
         qrCode: qrCode,
-        status: "CONFIRMED", // Confirmada automáticamente
+        status: "PENDING", // Cambiado de CONFIRMED a PENDING
       },
     })
 
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       horaFin: reservation.endTime.toISOString(),
       lugarEstacionamiento: `Lugar ${parkingSpot.spotNumber}`,
       ubicacion: parkingSpot.location.name,
-      estado: "CONFIRMADO",
+      estado: "PENDIENTE", // Cambiado de CONFIRMADO a PENDIENTE
       precio: reservation.price,
     }
 
@@ -190,4 +190,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

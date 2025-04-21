@@ -245,7 +245,7 @@ export default function AdminUsersPage() {
 
       <Card className="linear-card overflow-hidden border-0">
         <div className="p-4 border-b border-border/50">
-          <form onSubmit={handleSearch} className="flex gap-4">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -279,12 +279,12 @@ export default function AdminUsersPage() {
               <Table className="linear-table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Contacto</TableHead>
-                    <TableHead>Placa</TableHead>
-                    <TableHead>Reservaciones</TableHead>
-                    <TableHead>Fecha Registro</TableHead>
-                    <TableHead>Acciones</TableHead>
+                    <TableHead className="whitespace-nowrap">Nombre</TableHead>
+                    <TableHead className="whitespace-nowrap">Contacto</TableHead>
+                    <TableHead className="whitespace-nowrap">Placa</TableHead>
+                    <TableHead className="whitespace-nowrap">Reservaciones</TableHead>
+                    <TableHead className="whitespace-nowrap">Fecha Registro</TableHead>
+                    <TableHead className="whitespace-nowrap">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -354,11 +354,11 @@ export default function AdminUsersPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between p-4 border-t border-border/50">
-              <div className="text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-t border-border/50 gap-4">
+              <div className="text-sm text-muted-foreground text-center sm:text-left">
                 Mostrando {users.length} de {pagination.total} usuarios
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-center sm:justify-end space-x-2">
                 <Button
                   variant="outline"
                   size="icon"
@@ -389,7 +389,7 @@ export default function AdminUsersPage() {
       {/* Diálogo para editar usuario */}
       {editingUser && (
         <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] w-[95%] max-w-full mx-auto">
             <DialogHeader>
               <DialogTitle>Editar Usuario</DialogTitle>
               <DialogDescription>Modifica los datos del usuario</DialogDescription>
@@ -455,14 +455,14 @@ export default function AdminUsersPage() {
                 </Alert>
               )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingUser(null)}>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setEditingUser(null)} className="w-full sm:w-auto">
                 Cancelar
               </Button>
               <Button
                 onClick={handleUpdateUser}
                 disabled={updateLoading}
-                className="linear-button linear-button-primary"
+                className="linear-button linear-button-primary w-full sm:w-auto"
               >
                 {updateLoading ? "Guardando..." : "Guardar Cambios"}
               </Button>
@@ -473,4 +473,3 @@ export default function AdminUsersPage() {
     </div>
   )
 }
-

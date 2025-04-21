@@ -6,77 +6,55 @@ import jwt from "jsonwebtoken"
 const AUTH_SECRET = process.env.AUTH_SECRET || "your-fallback-secret-key-for-development"
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  console.log("API endpoint /api/admin/reservations/[id]/confirm called")
+
   try {
+    const { id } = params
+    console.log("Reservation ID:", id)
+
     // Verificar el token de administrador
     const authHeader = request.headers.get("authorization")
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("No authorization header or invalid format")
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
     const token = authHeader.split(" ")[1]
+    console.log("Token received:", token.substring(0, 10) + "...")
 
     try {
       // Verificar el token
       jwt.verify(token, AUTH_SECRET)
+      console.log("Token verified successfully")
     } catch (err) {
+      console.log("Token verification failed:", err)
       return NextResponse.json({ error: "Token inválido" }, { status: 401 })
     }
 
-    const reservationId = params.id
-
     // Verificar que la reservación existe
     const reservation = await prisma.reservation.findUnique({
-      where: { id: reservationId },
-      include: {
-        parkingSpot: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-          },
-        },
-      },
+      where: { id },
     })
 
     if (!reservation) {
+      console.log("Reservation not found")
       return NextResponse.json({ error: "Reservación no encontrada" }, { status: 404 })
     }
 
-    // Verificar que la reservación está en estado PENDING
-    if (reservation.status !== "PENDING") {
-      return NextResponse.json(
-        {
-          error: "La reservación no está en estado pendiente",
-          currentStatus: reservation.status,
-        },
-        { status: 400 },
-      )
-    }
+    console.log("Updating reservation status to CONFIRMED")
 
-    // Actualizar el estado de la reservación a CONFIRMED
+    // Actualizar el estado de la reservación a confirmada y marcar que el cronómetro ha iniciado
     const updatedReservation = await prisma.reservation.update({
-      where: { id: reservationId },
+      where: { id },
       data: {
         status: "CONFIRMED",
-        // También podríamos registrar quién confirmó la reservación y cuándo
-        updatedAt: new Date(),
+        timerStarted: true,
+        timerStartedAt: new Date(),
       },
     })
 
-    // Actualizar el estado del lugar de estacionamiento a no disponible
-    await prisma.parkingSpot.update({
-      where: { id: reservation.parkingSpotId },
-      data: {
-        isAvailable: false,
-      },
-    })
-
-    // Aquí podríamos enviar una notificación al usuario si fuera necesario
-
+    console.log("Reservation updated successfully")
     return NextResponse.json({
-      success: true,
       message: "Reservación confirmada exitosamente",
       reservation: updatedReservation,
     })
@@ -85,4 +63,3 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: "Error al confirmar la reservación" }, { status: 500 })
   }
 }
-

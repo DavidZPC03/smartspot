@@ -206,8 +206,8 @@ export default function ParkingSpotsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-gray-50 p-4 md:p-6 rounded-lg">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
               <h2 className="text-lg font-medium">Lugares de estacionamiento</h2>
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
@@ -263,4 +263,3 @@ export default function ParkingSpotsPage() {
     </div>
   )
 }
-

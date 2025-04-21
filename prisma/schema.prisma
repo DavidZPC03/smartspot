@@ -40,7 +40,8 @@ model ParkingSpot {
   id           String        @id @default(cuid())
   spotNumber   Int
   isAvailable  Boolean       @default(true)
-  price        Float         @default(0)
+  isActive     Boolean       @default(true)
+  price        Float         @default(10.0)
   locationId   String
   location     Location      @relation(fields: [locationId], references: [id])
   createdAt    DateTime      @default(now())
@@ -66,6 +67,9 @@ model Reservation {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   emailLogs     EmailLog[]
+  additionalCharges AdditionalCharge[]
+  timerStarted  Boolean     @default(false)
+  timerStartedAt DateTime?
 }
 
 model EmailLog {
@@ -79,3 +83,15 @@ model EmailLog {
   createdAt     DateTime     @default(now())
 }
 
+model AdditionalCharge {
+  id                   String      @id @default(cuid())
+  reservationId        String
+  reservation          Reservation @relation(fields: [reservationId], references: [id])
+  amount               Float
+  reason               String
+  stripePaymentIntentId String?
+  stripePaymentStatus   String?
+  status               String      // PENDING, COMPLETED, FAILED
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+}

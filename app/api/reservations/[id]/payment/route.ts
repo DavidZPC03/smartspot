@@ -1,11 +1,25 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { getCurrentUser } from "@/lib/auth"
+import prisma from "@/lib/prisma"
+import { getUserFromRequest } from "@/lib/auth"
 import { generateQRCode } from "@/lib/qrcode"
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
+    // Obtener el token del encabezado de autorización
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("No se encontró token de autorización en la solicitud")
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    const token = authHeader.split(" ")[1]
+    if (!token) {
+      console.log("Token vacío en la solicitud")
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    // Usar getUserFromRequest en lugar de getCurrentUser
+    const user = await getUserFromRequest(request)
     if (!user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
@@ -53,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       horaFin: reservation.endTime.toISOString(),
       lugarEstacionamiento: `Lugar ${reservation.parkingSpot.spotNumber}`,
       ubicacion: reservation.parkingSpot.location.name,
-      estado: "PAGADO",
+      estado: "PENDIENTE", // Cambiado de PAGADO a PENDIENTE
       precio: reservation.price,
     }
 
@@ -72,7 +86,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         endTime: reservation.endTime,
         parkingSpotNumber: reservation.parkingSpot.spotNumber,
         locationName: reservation.parkingSpot.location.name,
-        status: "PENDING",
+        status: "PENDING", 
       },
     })
   } catch (error) {
@@ -80,4 +94,3 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: "Error al procesar el pago", details: (error as Error).message }, { status: 500 })
   }
 }
-
