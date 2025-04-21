@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     }
 
     // Make sure we're sending at least 1000 cents (10 MXN) to Stripe
-    const amountInCents = Math.max(Math.round(amount * 100), 100)
+    const amountInCents = Math.max(Math.round(amount * 100), 1000)
 
     console.log("Creando intención de pago por:", amountInCents, "centavos")
 
