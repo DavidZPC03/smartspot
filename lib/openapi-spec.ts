@@ -16,12 +16,12 @@ export const openApiSpec = {
   },
   servers: [
     {
-      url: "https://api.smartspot.com",
+      url: "smartspot-production.up.railway.app",
       description: "Servidor de producción",
     },
     {
-      url: "https://staging-api.smartspot.com",
-      description: "Servidor de pruebas",
+      url: "smartspot-production.up.railway.app",
+      description: "Servidor de pruebas (uso produccion para pruebas, esta mal lo se....)",
     },
     {
       url: "http://localhost:3000",
